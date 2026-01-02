@@ -23,15 +23,15 @@ impl GraphBuilder {
         }
     }
 
-    /// Add a node with ports and type.
-    pub fn node(&mut self, ports: Vec<Port>, node_type: NodeType) -> NodeHandle {
-        let id = self.graph.add_node(ports, node_type);
+    /// Add a node with type.
+    pub fn node(&mut self, node_type: NodeType) -> NodeHandle {
+        let id = self.graph.add_node(node_type);
         NodeHandle(id)
     }
 
     /// Add a named node.
-    pub fn node_named(&mut self, name: &str, ports: Vec<Port>, node_type: NodeType) -> NodeHandle {
-        let handle = self.node(ports, node_type);
+    pub fn node_named(&mut self, name: &str, node_type: NodeType) -> NodeHandle {
+        let handle = self.node(node_type);
         self.node_names.insert(name.to_string(), handle.0);
         handle
     }

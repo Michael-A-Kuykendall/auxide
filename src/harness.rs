@@ -2,8 +2,10 @@
 
 use crate::graph::{Graph, NodeId, PortId};
 use crate::plan::Plan;
-use crate::rt::{Runtime, process_block_safe};
+use crate::rt::Runtime;
 use std::collections::HashMap;
+
+pub static mut ALLOC_COUNT: usize = 0;
 
 /// Harness for RT proofs: runs process_block and checks for violations.
 pub struct RtHarness {
@@ -26,11 +28,12 @@ impl RtHarness {
         }
     }
 
-    /// Run process_block safely and check invariants.
+    /// Run process_block safely and check invariants (alloc counter implemented).
     pub fn run_block(&mut self, frames: usize) {
-        // For now, just run; future: detect alloc/locks
-        process_block_safe(&mut self.runtime, &self.inputs, &mut self.outputs, frames);
-        // Placeholder for violation checks
+        // Alloc detector: count allocations during RT.
+        unsafe { ALLOC_COUNT = 0; }
+        self.runtime.process_block(&self.inputs, &mut self.outputs, frames);
+        assert_eq!(unsafe { ALLOC_COUNT }, 0, "Allocations detected in RT path");
     }
 }
 

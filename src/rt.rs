@@ -1,5 +1,7 @@
 //! RT module: real-time execution engine.
 
+// IMPORTANT: Do not call assert_invariant or any PPT logging in RT paths to avoid locks/allocs.
+
 use crate::graph::{Graph, NodeId, NodeType};
 use crate::plan::Plan;
 use std::collections::HashMap;
@@ -25,50 +27,69 @@ pub type Outputs = HashMap<NodeId, HashMap<crate::graph::PortId, Vec<f32>>>;
 #[derive(Debug)]
 pub struct Runtime {
     pub plan: Plan,
-    node_types: Vec<NodeType>,
-    node_states: Vec<NodeState>,
+    graph: Graph,
 }
 
 impl Runtime {
     /// Create a new runtime from a plan and graph.
     pub fn new(plan: Plan, graph: &Graph) -> Self {
-        let node_types: Vec<NodeType> = graph.nodes.iter().map(|n| n.node_type.clone()).collect();
-        let node_states = node_types
-            .iter()
-            .map(|nt| match nt {
-                NodeType::SineOsc { freq: _, phase } => NodeState::SineOsc { phase: *phase },
-                NodeType::Gain { .. } => NodeState::Gain,
-                NodeType::Mix => NodeState::Mix,
-                NodeType::OutputSink => NodeState::OutputSink,
-                NodeType::Dummy => NodeState::Dummy,
-            })
-            .collect();
         Self {
             plan,
-            node_types,
-            node_states,
+            graph: graph.clone(),
         }
     }
 
-    /// Process a block of frames.
-    /// Note: Current implementation is a scaffold and does not honor graph edges or plan buffers.
-    /// It simply copies inputs to outputs by node/port if preallocated.
+    /// Process a block of frames, honoring graph edges and plan buffers.
     pub fn process_block(&mut self, inputs: &Inputs, outputs: &mut Outputs, frames: usize) {
         // For each node in execution order
         for &node_id in &self.plan.execution_order {
-            // Dummy processing: copy inputs to outputs
-            if let Some(node_inputs) = inputs.get(&node_id)
-                && let Some(node_outputs) = outputs.get_mut(&node_id)
-            {
-                for (port_id, data) in node_inputs {
-                    if let Some(out_vec) = node_outputs.get_mut(port_id) {
-                        let copy_len = frames.min(out_vec.len()).min(data.len());
-                        out_vec[..copy_len].copy_from_slice(&data[..copy_len]);
-                        // Silence the rest if out_vec is longer
-                        if copy_len < out_vec.len() {
-                            out_vec[copy_len..].fill(0.0);
+            let node_data = &self.graph.nodes[node_id.0];
+            // Collect inputs: external + routed from buffers
+            let mut node_inputs_vec = vec![];
+            for port in &node_data.inputs {
+                if let Some(data) = inputs.get(&node_id).and_then(|m| m.get(&port.id)) {
+                    node_inputs_vec.push(data.as_slice());
+                } else if let Some(buffer) = self.plan.buffers.get(&(node_id, port.id, node_id, port.id)) {
+                    // Wait, for inputs, it's from other nodes.
+                    // For routed inputs
+                    for edge in &self.graph.edges {
+                        if edge.to_node == node_id && edge.to_port == port.id {
+                            if let Some(buffer) = self.plan.buffers.get(&(edge.from_node, edge.from_port, edge.to_node, edge.to_port)) {
+                                node_inputs_vec.push(&buffer.data[..frames]);
+                                break;
+                            }
                         }
                     }
+                    if node_inputs_vec.len() < node_data.inputs.len() {
+                        node_inputs_vec.push(&[]);
+                    }
+                } else {
+                    node_inputs_vec.push(&[]);
+                }
+            }
+
+            // Prepare outputs
+            let mut node_outputs_vec = vec![vec![0.0; frames]; node_data.outputs.len()];
+
+            // Process node
+            let ctx = crate::graph::ProcessContext { sample_rate: 44100.0, block_size: frames };
+            node_data.node.process_block(&node_inputs_vec, &mut node_outputs_vec.iter_mut().map(|v| v.as_mut_slice()).collect::<Vec<_>>(), &ctx);
+
+            // Store outputs in plan buffers for outgoing edges
+            for (i, port) in node_data.outputs.iter().enumerate() {
+                for edge in &self.graph.edges {
+                    if edge.from_node == node_id && edge.from_port == port.id {
+                        if let Some(buffer) = self.plan.buffers.get_mut(&(edge.from_node, edge.from_port, edge.to_node, edge.to_port)) {
+                            buffer.data[..frames].copy_from_slice(&node_outputs_vec[i]);
+                        }
+                    }
+                }
+            }
+
+            // Populate external outputs
+            if let Some(out_map) = outputs.get_mut(&node_id) {
+                for (i, port) in node_data.outputs.iter().enumerate() {
+                    out_map.insert(port.id, node_outputs_vec[i].clone());
                 }
             }
         }
@@ -78,21 +99,16 @@ impl Runtime {
 /// Render offline to a buffer.
 pub fn render_offline(runtime: &mut Runtime, frames: usize) -> Vec<f32> {
     let mut output = vec![0.0; frames];
-    let sample_rate = 44100.0; // Assume
-    for sample in output.iter_mut().take(frames) {
-        *sample = 0.0;
-        // For each node, process
-        for (i, node_type) in runtime.node_types.iter().enumerate() {
-            if let (NodeType::SineOsc { freq, .. }, NodeState::SineOsc { phase }) =
-                (node_type, &mut runtime.node_states[i])
-            {
-                let sample_val = (*phase * 2.0 * std::f32::consts::PI).sin();
-                *sample = sample_val;
-                *phase += freq / sample_rate;
-                if *phase >= 1.0 {
-                    *phase -= 1.0;
-                }
-            }
+    let mut outputs = HashMap::new();
+    for node in &runtime.graph.nodes {
+        if !node.outputs.is_empty() {
+            outputs.insert(node.id, HashMap::from([(node.outputs[0].id, vec![0.0; frames])]));
+        }
+    }
+    runtime.process_block(&HashMap::new(), &mut outputs, frames);
+    if let Some(node_outputs) = outputs.values().next() {
+        if let Some(data) = node_outputs.values().next() {
+            output.copy_from_slice(data);
         }
     }
     output
@@ -127,13 +143,7 @@ mod tests {
     #[test]
     fn rt_no_alloc() {
         let mut graph = Graph::new();
-        let node1 = graph.add_node(
-            vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Dummy,
-        );
+        let node1 = graph.add_node(Box::new(crate::graph::DummyNode));
         let plan = Plan::compile(&graph).unwrap();
         let mut runtime = Runtime::new(plan, &graph);
         let mut inputs = HashMap::new();
@@ -149,7 +159,7 @@ mod tests {
     fn rt_no_lock() {
         // Assume no locks; in Rust, no mutex used
         let mut graph = Graph::new();
-        let _node1 = graph.add_node(vec![], NodeType::Dummy);
+        let _node1 = graph.add_node(Box::new(crate::graph::DummyNode));
         let plan = Plan::compile(&graph).unwrap();
         let mut runtime = Runtime::new(plan, &graph);
         let inputs = HashMap::new();
@@ -158,23 +168,11 @@ mod tests {
     }
 
     #[test]
-    fn rt_ignores_edges() {
-        // Current scaffold limitation: edges do not affect output
+    fn rt_honors_edges() {
+        // Edges are honored: outputs propagate through the graph
         let mut graph = Graph::new();
-        let node1 = graph.add_node(
-            vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Dummy,
-        );
-        let node2 = graph.add_node(
-            vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Dummy,
-        );
+        let node1 = graph.add_node(Box::new(crate::graph::DummyNode));
+        let node2 = graph.add_node(Box::new(crate::graph::DummyNode));
         graph
             .add_edge(crate::graph::Edge {
                 from_node: node1,
@@ -192,9 +190,9 @@ mod tests {
         outputs.insert(node1, HashMap::from([(PortId(0), vec![0.0; 64])]));
         outputs.insert(node2, HashMap::from([(PortId(0), vec![0.0; 64])]));
         runtime.process_block(&inputs, &mut outputs, 64);
-        // Currently, only node1 output is set, node2 remains zero despite edge
+        // Edges are honored: node2 gets input from node1
         assert_eq!(outputs[&node1][&PortId(0)], vec![1.0; 64]);
-        assert_eq!(outputs[&node2][&PortId(0)], vec![0.0; 64]); // Limitation: edge not honored
+        assert_eq!(outputs[&node2][&PortId(0)], vec![1.0; 64]);
     }
 
     #[test]
@@ -224,16 +222,7 @@ mod tests {
     #[test]
     fn node_golden() {
         let mut graph = Graph::new();
-        let _node1 = graph.add_node(
-            vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::SineOsc {
-                freq: 440.0,
-                phase: 0.0,
-            },
-        );
+        let _node1 = graph.add_node(Box::new(crate::graph::SineOscNode { freq: 440.0, phase: 0.0 }));
         let plan = Plan::compile(&graph).unwrap();
         let mut runtime = Runtime::new(plan, &graph);
         let output = render_offline(&mut runtime, 64);

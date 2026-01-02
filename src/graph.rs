@@ -1,11 +1,133 @@
 //! Graph module for Auxide: correct-by-construction signal graphs.
 
-/// Represents the rate of a signal.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+use std::collections::HashMap;
+
+#[non_exhaustive]
 pub enum Rate {
     Audio,
     Control,
     Event,
+}
+
+/// Process context for nodes.
+#[derive(Debug, Clone)]
+pub struct ProcessContext {
+    pub sample_rate: f32,
+    pub block_size: usize,
+}
+
+/// ProcessNode trait for processing data.
+pub trait ProcessNode {
+    fn process_block(&mut self, inputs: &[&[f32]], outputs: &mut [&mut [f32]], ctx: &ProcessContext);
+    fn input_ports(&self) -> Vec<Port>;
+    fn output_ports(&self) -> Vec<Port>;
+}
+
+/// Concrete node implementations.
+
+#[derive(Debug)]
+pub struct DummyNode;
+
+impl ProcessNode for DummyNode {
+    fn process_block(&mut self, inputs: &[&[f32]], outputs: &mut [&mut [f32]], _ctx: &ProcessContext) {
+        for (i, output) in outputs.iter_mut().enumerate() {
+            if let Some(input) = inputs.get(i) {
+                output.copy_from_slice(input);
+            }
+        }
+    }
+    fn input_ports(&self) -> Vec<Port> {
+        vec![Port { id: PortId(0), rate: Rate::Audio }]
+    }
+    fn output_ports(&self) -> Vec<Port> {
+        vec![Port { id: PortId(0), rate: Rate::Audio }]
+    }
+}
+
+#[derive(Debug)]
+pub struct SineOscNode {
+    pub freq: f32,
+    pub phase: f32,
+}
+
+impl ProcessNode for SineOscNode {
+    fn process_block(&mut self, _inputs: &[&[f32]], outputs: &mut [&mut [f32]], ctx: &ProcessContext) {
+        for output in outputs {
+            for sample in output.iter_mut() {
+                *sample = self.phase.sin();
+                self.phase += 2.0 * std::f32::consts::PI * self.freq / ctx.sample_rate;
+            }
+        }
+    }
+    fn input_ports(&self) -> Vec<Port> {
+        vec![]
+    }
+    fn output_ports(&self) -> Vec<Port> {
+        vec![Port { id: PortId(0), rate: Rate::Audio }]
+    }
+}
+
+#[derive(Debug)]
+pub struct GainNode {
+    pub gain: f32,
+}
+
+impl ProcessNode for GainNode {
+    fn process_block(&mut self, inputs: &[&[f32]], outputs: &mut [&mut [f32]], _ctx: &ProcessContext) {
+        for (i, output) in outputs.iter_mut().enumerate() {
+            if let Some(input) = inputs.get(i) {
+                for (o, &i_val) in output.iter_mut().zip(input) {
+                    *o = i_val * self.gain;
+                }
+            }
+        }
+    }
+    fn input_ports(&self) -> Vec<Port> {
+        vec![Port { id: PortId(0), rate: Rate::Audio }]
+    }
+    fn output_ports(&self) -> Vec<Port> {
+        vec![Port { id: PortId(0), rate: Rate::Audio }]
+    }
+}
+
+#[derive(Debug)]
+pub struct MixNode;
+
+impl ProcessNode for MixNode {
+    fn process_block(&mut self, inputs: &[&[f32]], outputs: &mut [&mut [f32]], _ctx: &ProcessContext) {
+        for output in outputs {
+            output.fill(0.0);
+            for input in inputs {
+                for (o, &i_val) in output.iter_mut().zip(input) {
+                    *o += i_val;
+                }
+            }
+        }
+    }
+    fn input_ports(&self) -> Vec<Port> {
+        vec![
+            Port { id: PortId(0), rate: Rate::Audio },
+            Port { id: PortId(1), rate: Rate::Audio },
+        ]
+    }
+    fn output_ports(&self) -> Vec<Port> {
+        vec![Port { id: PortId(0), rate: Rate::Audio }]
+    }
+}
+
+#[derive(Debug)]
+pub struct OutputSinkNode;
+
+impl ProcessNode for OutputSinkNode {
+    fn process_block(&mut self, _inputs: &[&[f32]], _outputs: &mut [&mut [f32]], _ctx: &ProcessContext) {
+        // Sink, do nothing
+    }
+    fn input_ports(&self) -> Vec<Port> {
+        vec![Port { id: PortId(0), rate: Rate::Audio }]
+    }
+    fn output_ports(&self) -> Vec<Port> {
+        vec![]
+    }
 }
 
 /// Unique identifier for a node.
@@ -34,15 +156,14 @@ pub struct Edge {
 }
 
 /// A node in the graph.
-#[derive(Debug, Clone)]
-pub struct Node {
+pub struct NodeData {
     pub id: NodeId,
-    pub ports: Vec<Port>,
-    pub node_type: NodeType,
+    pub inputs: Vec<Port>,
+    pub outputs: Vec<Port>,
+    pub node: Box<dyn ProcessNode>,
 }
 
-/// Node types for processing.
-#[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum NodeType {
     SineOsc { freq: f32, phase: f32 },
     Gain { gain: f32 },
@@ -51,10 +172,77 @@ pub enum NodeType {
     Dummy, // For testing
 }
 
+impl ProcessNode for NodeType {
+    fn process_block(&mut self, inputs: &[&[f32]], outputs: &mut [&mut [f32]], ctx: &ProcessContext) {
+        match self {
+            NodeType::Dummy => {
+                for (i, output) in outputs.iter_mut().enumerate() {
+                    if let Some(input) = inputs.get(i) {
+                        output.copy_from_slice(input);
+                    }
+                }
+            }
+            NodeType::SineOsc { freq, phase } => {
+                for output in outputs {
+                    for sample in output.iter_mut() {
+                        *sample = phase.sin();
+                        *phase += 2.0 * std::f32::consts::PI * *freq / ctx.sample_rate;
+                    }
+                }
+            }
+            NodeType::Gain { gain } => {
+                for (i, output) in outputs.iter_mut().enumerate() {
+                    if let Some(input) = inputs.get(i) {
+                        for (o, &i_val) in output.iter_mut().zip(input) {
+                            *o = i_val * *gain;
+                        }
+                    }
+                }
+            }
+            NodeType::Mix => {
+                for output in outputs {
+                    output.fill(0.0);
+                    for input in inputs {
+                        for (o, &i_val) in output.iter_mut().zip(input) {
+                            *o += i_val;
+                        }
+                    }
+                }
+            }
+            NodeType::OutputSink => {
+                // Do nothing
+            }
+        }
+    }
+
+    fn input_ports(&self) -> Vec<Port> {
+        match self {
+            NodeType::Dummy => vec![Port { id: PortId(0), rate: Rate::Audio }],
+            NodeType::SineOsc { .. } => vec![],
+            NodeType::Gain { .. } => vec![Port { id: PortId(0), rate: Rate::Audio }],
+            NodeType::Mix => vec![
+                Port { id: PortId(0), rate: Rate::Audio },
+                Port { id: PortId(1), rate: Rate::Audio },
+            ],
+            NodeType::OutputSink => vec![Port { id: PortId(0), rate: Rate::Audio }],
+        }
+    }
+
+    fn output_ports(&self) -> Vec<Port> {
+        match self {
+            NodeType::Dummy => vec![Port { id: PortId(0), rate: Rate::Audio }],
+            NodeType::SineOsc { .. } => vec![Port { id: PortId(0), rate: Rate::Audio }],
+            NodeType::Gain { .. } => vec![Port { id: PortId(0), rate: Rate::Audio }],
+            NodeType::Mix => vec![Port { id: PortId(0), rate: Rate::Audio }],
+            NodeType::OutputSink => vec![],
+        }
+    }
+}
+
 /// The signal graph: a DAG of nodes and edges.
 #[derive(Debug, Clone)]
 pub struct Graph {
-    pub nodes: Vec<Node>,
+    pub nodes: Vec<NodeData>,
     pub edges: Vec<Edge>,
 }
 
@@ -75,15 +263,12 @@ impl Graph {
         }
     }
 
-    /// Add a node with given ports and type.
-    pub fn add_node(&mut self, ports: Vec<Port>, node_type: NodeType) -> NodeId {
+    /// Add a node.
+    pub fn add_node(&mut self, node: Box<dyn ProcessNode>) -> NodeId {
+        let inputs = node.input_ports();
+        let outputs = node.output_ports();
         let id = NodeId(self.nodes.len());
-        let node = Node {
-            id,
-            ports,
-            node_type,
-        };
-        self.nodes.push(node);
+        self.nodes.push(NodeData { id, inputs, outputs, node });
         id
     }
 
@@ -107,11 +292,18 @@ impl Graph {
     }
 
     fn get_port_rate(&self, node_id: NodeId, port_id: PortId) -> Result<Rate, GraphError> {
-        self.nodes
-            .get(node_id.0)
-            .and_then(|node| node.ports.iter().find(|p| p.id == port_id))
-            .map(|p| p.rate)
-            .ok_or(GraphError::InvalidPort)
+        let node = &self.nodes[node_id.0];
+        for port in &node.inputs {
+            if port.id == port_id {
+                return Ok(port.rate);
+            }
+        }
+        for port in &node.outputs {
+            if port.id == port_id {
+                return Ok(port.rate);
+            }
+        }
+        Err(GraphError::InvalidPort)
     }
 
     fn would_create_cycle(&self, edge: &Edge) -> bool {
