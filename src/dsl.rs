@@ -1,6 +1,6 @@
 //! DSL module: builder API for graphs.
 
-use crate::graph::{Graph, GraphError, NodeId, NodeType, Port, PortId, Rate};
+    use crate::graph::{Graph, GraphError, NodeId, NodeType, PortId, Rate};
 use std::collections::HashMap;
 
 /// Handle to a node in the builder.
@@ -84,40 +84,16 @@ mod tests {
     fn dsl_equivalence() {
         // Build graph via DSL and manually, check equivalence
         let mut builder = GraphBuilder::new();
-        let node1 = builder.node(
-            vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Dummy,
-        );
-        let node2 = builder.node(
-            vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Dummy,
-        );
+        let node1 = builder.node(NodeType::Dummy);
+        let node2 = builder.node(NodeType::Dummy);
         builder
             .connect(node1, PortId(0), node2, PortId(0), Rate::Audio)
             .unwrap();
         let dsl_graph = builder.build().unwrap();
 
         let mut manual_graph = Graph::new();
-        let m_node1 = manual_graph.add_node(
-            vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Dummy,
-        );
-        let m_node2 = manual_graph.add_node(
-            vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Dummy,
-        );
+        let m_node1 = manual_graph.add_node(NodeType::Dummy);
+        let m_node2 = manual_graph.add_node(NodeType::Dummy);
         manual_graph
             .add_edge(crate::graph::Edge {
                 from_node: m_node1,
@@ -137,22 +113,10 @@ mod tests {
     fn ui_tests() {
         // Test error cases
         let mut builder = GraphBuilder::new();
-        let node1 = builder.node(
-            vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Dummy,
-        );
-        let node2 = builder.node(
-            vec![Port {
-                id: PortId(0),
-                rate: Rate::Control,
-            }],
-            NodeType::Dummy,
-        );
+        let node1 = builder.node(NodeType::Dummy);
+        let node2 = builder.node(NodeType::Dummy);
         let err = builder
-            .connect(node1, PortId(0), node2, PortId(0), Rate::Audio)
+            .connect(node1, PortId(0), node2, PortId(0), Rate::Control)
             .unwrap_err();
         assert_eq!(err, DslError::Graph(GraphError::RateMismatch));
     }

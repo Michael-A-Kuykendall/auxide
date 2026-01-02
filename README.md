@@ -29,7 +29,7 @@ use auxide::dsl::GraphBuilder;
 use auxide::graph::NodeType;
 
 let mut builder = GraphBuilder::new();
-let sine = builder.node(NodeType::SineOsc { freq: 440.0, phase: 0.0 });
+let sine = builder.node(NodeType::SineOsc { freq: 440.0 });
 let gain = builder.node(NodeType::Gain { gain: 0.5 });
 builder.connect(sine, auxide::graph::PortId(0), gain, auxide::graph::PortId(0), auxide::graph::Rate::Audio).unwrap();
 let graph = builder.build().unwrap();
@@ -41,16 +41,17 @@ Compile and run:
 use auxide::plan::Plan;
 use auxide::rt::Runtime;
 
-let plan = Plan::compile(&graph).unwrap();
+let plan = Plan::compile(&graph, 512).unwrap();
 let mut runtime = Runtime::new(plan, &graph);
-// Process audio...
+let mut out_block = vec![0.0; 512];
+runtime.process_block(&mut out_block);
 ```
 
 ## Documentation
 
-- [DESIGN.md](DESIGN.md): Goals, invariants, and non-goals.
-- [SAFETY.md](SAFETY.md): RT rules and enforcement.
-- [PROOFS.md](PROOFS.md): Test mappings for all claims.
+- [DESIGN.md](.docs/DESIGN.md): Goals, invariants, and non-goals.
+- [SAFETY.md](.docs/SAFETY.md): RT rules and enforcement.
+- [PROOFS.md](.docs/PROOFS.md): Test mappings for all claims.
 
 ## Benchmarks
 

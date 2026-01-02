@@ -1,42 +1,56 @@
 //! Plan module: compile graph into executable plan.
 
-use crate::graph::{Graph, NodeId, PortId};
-use std::collections::HashMap;
+use crate::graph::{Graph, NodeId, PortId, Rate};
 
-/// A buffer for signal data.
+/// Edge spec for the plan.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Buffer {
-    pub data: Vec<f32>, // Assume f32 for audio
+pub struct EdgeSpec {
+    pub from_node: NodeId,
+    pub from_port: PortId,
+    pub to_node: NodeId,
+    pub to_port: PortId,
+    pub rate: Rate,
 }
 
-/// The compiled plan: execution order and buffers.
+/// The compiled plan: execution order and edge specs.
 #[derive(Debug, Clone)]
 pub struct Plan {
-    pub execution_order: Vec<NodeId>,
-    pub buffers: HashMap<(NodeId, PortId, NodeId, PortId), Buffer>, // Per edge buffer
+    pub order: Vec<NodeId>,
+    pub node_inputs: Vec<Vec<(usize, PortId)>>, // (edge_idx, port)
+    pub node_outputs: Vec<Vec<(usize, PortId)>>, // (edge_idx, port)
+    pub edges: Vec<EdgeSpec>,
+    pub block_size: usize,
 }
 
 impl Plan {
     /// Create a plan from a graph.
-    pub fn compile(graph: &Graph) -> Result<Self, PlanError> {
+    pub fn compile(graph: &Graph, block_size: usize) -> Result<Self, PlanError> {
         // Topological sort
-        let execution_order = topo_sort(graph)?;
+        let order = topo_sort(graph)?;
 
-        // Allocate buffers: one per edge
-        let mut buffers = HashMap::new();
-        for edge in &graph.edges {
-            let buffer = Buffer {
-                data: vec![0.0; 1024],
-            }; // Fixed size for now
-            buffers.insert(
-                (edge.from_node, edge.from_port, edge.to_node, edge.to_port),
-                buffer,
-            );
+        // Build edges
+        let edges: Vec<EdgeSpec> = graph.edges.iter().map(|e| EdgeSpec {
+            from_node: e.from_node,
+            from_port: e.from_port,
+            to_node: e.to_node,
+            to_port: e.to_port,
+            rate: e.rate.clone(),
+        }).collect();
+
+        // Build node_inputs and node_outputs
+        let mut node_inputs = vec![vec![]; graph.nodes.len()];
+        let mut node_outputs = vec![vec![]; graph.nodes.len()];
+        for (edge_idx, edge) in edges.iter().enumerate() {
+            node_inputs[edge.to_node.0].push((edge_idx, edge.to_port));
+            node_outputs[edge.from_node.0].push((edge_idx, edge.from_port));
         }
 
         let plan = Self {
-            execution_order,
-            buffers,
+            order,
+            node_inputs,
+            node_outputs,
+            edges,
+            block_size,
         };
         Ok(plan)
     }
@@ -86,31 +100,13 @@ fn topo_sort(graph: &Graph) -> Result<Vec<NodeId>, PlanError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::{Edge, NodeType, Port, PortId, Rate};
+    use crate::graph::{Edge, NodeType, PortId, Rate};
 
     #[test]
     fn plan_stability() {
         let mut graph = Graph::new();
-        let node1 = graph.add_node(
-            vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Dummy,
-        );
-        let node2 = graph.add_node(
-            vec![
-                Port {
-                    id: PortId(0),
-                    rate: Rate::Audio,
-                },
-                Port {
-                    id: PortId(1),
-                    rate: Rate::Audio,
-                },
-            ],
-            NodeType::Dummy,
-        );
+        let node1 = graph.add_node(NodeType::Dummy);
+        let node2 = graph.add_node(NodeType::Mix);
         graph
             .add_edge(Edge {
                 from_node: node1,
@@ -121,30 +117,18 @@ mod tests {
             })
             .unwrap();
 
-        let plan1 = Plan::compile(&graph).unwrap();
-        let plan2 = Plan::compile(&graph).unwrap();
-        assert_eq!(plan1.execution_order, plan2.execution_order);
-        assert_eq!(plan1.buffers, plan2.buffers);
+        let plan1 = Plan::compile(&graph, 64).unwrap();
+        let plan2 = Plan::compile(&graph, 64).unwrap();
+        assert_eq!(plan1.order, plan2.order);
+        assert_eq!(plan1.edges, plan2.edges);
     }
 
     #[test]
     fn plan_buffer_liveness() {
-        // Check that buffers are allocated correctly and no extras.
+        // Check that edges are built correctly.
         let mut graph = Graph::new();
-        let node1 = graph.add_node(
-            vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Dummy,
-        );
-        let node2 = graph.add_node(
-            vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Dummy,
-        );
+        let node1 = graph.add_node(NodeType::Dummy);
+        let node2 = graph.add_node(NodeType::Dummy);
         graph
             .add_edge(Edge {
                 from_node: node1,
@@ -155,22 +139,20 @@ mod tests {
             })
             .unwrap();
 
-        let plan = Plan::compile(&graph).unwrap();
-        assert_eq!(plan.buffers.len(), 1);
-        assert!(
-            plan.buffers
-                .contains_key(&(node1, PortId(0), node2, PortId(0)))
-        );
+        let plan = Plan::compile(&graph, 64).unwrap();
+        assert_eq!(plan.edges.len(), 1);
+        assert_eq!(plan.edges[0].from_node, node1);
+        assert_eq!(plan.edges[0].to_node, node2);
     }
 
     #[test]
     fn plan_debug_smoke_test() {
         let mut graph = Graph::new();
-        let _node1 = graph.add_node(vec![], NodeType::Dummy);
-        let plan = Plan::compile(&graph).unwrap();
+        let _node1 = graph.add_node(NodeType::Dummy);
+        let plan = Plan::compile(&graph, 64).unwrap();
         let debug_str = format!("{:?}", plan);
         // Smoke test: ensure it doesn't panic and contains expected fields
-        assert!(debug_str.contains("execution_order"));
-        assert!(debug_str.contains("buffers"));
+        assert!(debug_str.contains("order"));
+        assert!(debug_str.contains("edges"));
     }
 }
