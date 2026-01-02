@@ -1,0 +1,18 @@
+[package]
+name = "auxide"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+ppt = []
+
+[dependencies]
+lazy_static = "1.4"
+
+[dev-dependencies]
+criterion = "0.5"
+proptest = "1.0"
+
+[[bench]]
+name = "rt_bench"
+harness = false
