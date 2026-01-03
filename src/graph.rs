@@ -166,11 +166,23 @@ impl Graph {
     /// Add an edge, validating rates match and no cycles.
     pub fn add_edge(&mut self, edge: Edge) -> Result<(), GraphError> {
         // Validate node existence and get node data
-        let from_node_data = self.nodes.get(edge.from_node.0).and_then(|n| n.as_ref()).ok_or(GraphError::InvalidNode)?;
-        let to_node_data = self.nodes.get(edge.to_node.0).and_then(|n| n.as_ref()).ok_or(GraphError::InvalidNode)?;
+        let from_node_data = self
+            .nodes
+            .get(edge.from_node.0)
+            .and_then(|n| n.as_ref())
+            .ok_or(GraphError::InvalidNode)?;
+        let to_node_data = self
+            .nodes
+            .get(edge.to_node.0)
+            .and_then(|n| n.as_ref())
+            .ok_or(GraphError::InvalidNode)?;
 
         // Check that from_port is an output port
-        if !from_node_data.outputs.iter().any(|p| p.id == edge.from_port) {
+        if !from_node_data
+            .outputs
+            .iter()
+            .any(|p| p.id == edge.from_port)
+        {
             return Err(GraphError::InvalidPort);
         }
 
@@ -212,12 +224,16 @@ impl Graph {
     }
 
     /// Remove a node and all edges connected to it.
-    pub fn remove_node(&mut self, node_id: NodeId) {
+    pub fn remove_node(&mut self, node_id: NodeId) -> Result<(), GraphError> {
+        if node_id.0 >= self.nodes.len() {
+            return Err(GraphError::InvalidNode);
+        }
         // Remove the node
         self.nodes[node_id.0] = None;
         // Remove edges connected to the node
         self.edges
             .retain(|e| e.from_node != node_id && e.to_node != node_id);
+        Ok(())
     }
 
     fn get_port_rate(&self, node_id: NodeId, port_id: PortId) -> Result<Rate, GraphError> {

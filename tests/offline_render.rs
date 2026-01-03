@@ -21,8 +21,8 @@ fn offline_render_determinism() {
     let mut runtime1 = Runtime::new(plan.clone(), &graph, 44100.0);
     let mut runtime2 = Runtime::new(plan, &graph, 44100.0);
 
-    let output1 = render_offline(&mut runtime1, 64);
-    let output2 = render_offline(&mut runtime2, 64);
+    let output1 = render_offline(&mut runtime1, 64).unwrap();
+    let output2 = render_offline(&mut runtime2, 64).unwrap();
 
     assert_eq!(output1, output2, "Offline renders should be identical");
 }
@@ -47,7 +47,7 @@ fn offline_render_partial_block() {
 
     // Test with frames not multiple of block_size
     let frames = 65; // 64 + 1
-    let output = render_offline(&mut runtime, frames);
+    let output = render_offline(&mut runtime, frames).unwrap();
     assert_eq!(
         output.len(),
         frames,

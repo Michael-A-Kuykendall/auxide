@@ -116,7 +116,7 @@ fn remove_node_invalidates_edges() {
         })
         .unwrap();
     // Remove node1
-    graph.remove_node(node1);
+    graph.remove_node(node1).unwrap();
     // Edges to/from node1 should be removed
     assert!(graph.edges.is_empty());
     // And node2 still exists
@@ -152,7 +152,7 @@ fn remove_middle_node_preserves_survivors() {
         })
         .unwrap();
     // Remove middle node1
-    graph.remove_node(node1);
+    graph.remove_node(node1).unwrap();
     // Now add edge between survivors 0 -> 2
     graph
         .add_edge(Edge {
@@ -196,7 +196,7 @@ fn remove_node_stress_recompile() {
 
     // Remove every other node
     for i in (0..10).step_by(2) {
-        graph.remove_node(nodes[i]);
+        graph.remove_node(nodes[i]).unwrap();
     }
     // Recompile
     plan = Plan::compile(&graph, 64).unwrap();
@@ -216,8 +216,19 @@ fn remove_node_stress_recompile() {
         .unwrap();
     // Recompile again
     plan = Plan::compile(&graph, 64).unwrap();
-    // Should compile without issues
     assert!(plan.edges.len() > 0);
+}
+
+#[test]
+fn remove_node_bounds_check() {
+    let mut graph = Graph::new();
+    let osc = graph.add_node(NodeType::SineOsc { freq: 440.0 });
+
+    // Valid removal
+    assert!(graph.remove_node(osc).is_ok());
+
+    // Invalid removal
+    assert_eq!(graph.remove_node(NodeId(999)), Err(GraphError::InvalidNode));
 }
 
 #[test]

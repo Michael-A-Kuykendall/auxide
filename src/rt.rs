@@ -106,7 +106,7 @@ impl Runtime {
                                     *sample = phase.sin();
                                     *phase += step;
                                     // Wrap phase to prevent precision loss over long sessions
-                                    *phase = *phase % (2.0 * std::f32::consts::PI);
+                                    *phase %= 2.0 * std::f32::consts::PI;
                                 }
                             }
                         }
@@ -154,8 +154,10 @@ impl Runtime {
 }
 
 /// Render offline to a buffer.
-pub fn render_offline(runtime: &mut Runtime, frames: usize) -> Vec<f32> {
-    assert!(runtime.plan.block_size > 0, "Block size must be > 0 to avoid infinite loop");
+pub fn render_offline(runtime: &mut Runtime, frames: usize) -> Result<Vec<f32>, &'static str> {
+    if runtime.plan.block_size == 0 {
+        return Err("Block size must be > 0");
+    }
     let mut output = vec![0.0; frames];
     let block_size = runtime.plan.block_size;
     let mut offset = 0;
@@ -173,7 +175,7 @@ pub fn render_offline(runtime: &mut Runtime, frames: usize) -> Vec<f32> {
         }
         offset += block_len;
     }
-    output
+    Ok(output)
 }
 
 /// Run process_block with panic containment.
@@ -275,7 +277,7 @@ mod tests {
             .unwrap();
         let plan = Plan::compile(&graph, 64).unwrap();
         let mut runtime = Runtime::new(plan, &graph, 44100.0);
-        let output = render_offline(&mut runtime, 64);
+        let output = render_offline(&mut runtime, 64).unwrap();
         // Check first few samples
         assert!((output[0] - 0.0).abs() < 0.01); // sin(0) = 0
                                                  // Approximate check for sine wave

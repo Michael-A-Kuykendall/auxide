@@ -19,7 +19,7 @@ fn dsp_osc_correctness() {
 
     let plan = Plan::compile(&graph, 64).unwrap();
     let mut runtime = Runtime::new(plan, &graph, 44100.0);
-    let output = render_offline(&mut runtime, 64);
+    let output = render_offline(&mut runtime, 64).unwrap();
 
     // Check no DC offset: for a full period, but for now, skip
     // let mean: f32 = output.iter().sum::<f32>() / output.len() as f32;

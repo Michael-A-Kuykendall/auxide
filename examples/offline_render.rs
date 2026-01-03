@@ -19,6 +19,6 @@ fn main() {
     let plan = Plan::compile(&graph, 64).unwrap();
     let mut runtime = Runtime::new(plan, &graph, 44100.0);
 
-    let output = render_offline(&mut runtime, 64);
+    let output = render_offline(&mut runtime, 64).unwrap();
     println!("Offline render: first sample {}", output[0]);
 }

@@ -30,6 +30,6 @@ fn dsp_silence_propagation() {
 
     let plan = Plan::compile(&graph, 64).unwrap();
     let mut runtime = Runtime::new(plan, &graph, 44100.0);
-    let output = render_offline(&mut runtime, 64);
+    let output = render_offline(&mut runtime, 64).unwrap();
     assert!(output.iter().all(|&s| s == 0.0), "Silence should propagate");
 }
