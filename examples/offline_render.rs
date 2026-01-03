@@ -1,6 +1,6 @@
 use auxide::graph::{Graph, NodeType, PortId, Rate};
 use auxide::plan::Plan;
-use auxide::rt::{Runtime, render_offline};
+use auxide::rt::{render_offline, Runtime};
 
 fn main() {
     let mut graph = Graph::new();

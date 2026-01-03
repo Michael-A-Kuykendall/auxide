@@ -129,7 +129,7 @@ impl Runtime {
                         }
                     }
                     NodeType::OutputSink => {
-                        if let Some(&edge_idx) = self.temp_inputs.get(0) {
+                        if let Some(&edge_idx) = self.temp_inputs.first() {
                             let input = &self.edge_buffers[edge_idx][..];
                             out.copy_from_slice(input);
                         }
@@ -274,7 +274,7 @@ mod tests {
         let output = render_offline(&mut runtime, 64);
         // Check first few samples
         assert!((output[0] - 0.0).abs() < 0.01); // sin(0) = 0
-        // Approximate check for sine wave
+                                                 // Approximate check for sine wave
         assert!(output[1] > 0.0);
         assert!(output[10] > 0.0);
     }

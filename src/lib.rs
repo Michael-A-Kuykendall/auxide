@@ -48,6 +48,10 @@
 //! runtime.process_block(&mut out);
 //! ```
 
+#![doc(
+    html_logo_url = "https://raw.githubusercontent.com/Michael-A-Kuykendall/auxide/master/assets/auxide-logo.png"
+)]
+
 pub mod dsl;
 pub mod graph;
 pub mod plan;

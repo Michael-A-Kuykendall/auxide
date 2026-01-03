@@ -32,7 +32,7 @@ fn input_ports_connected_or_optional() {
     // Required inputs must be connected; optional may be unconnected.
     let mut graph = Graph::new();
     let gain_node = graph.add_node(NodeType::Gain { gain: 1.0 }); // Requires 1 input
-    // No edge to gain_node's input: should fail compile
+                                                                  // No edge to gain_node's input: should fail compile
     assert!(auxide::plan::Plan::compile(&graph, 64).is_err());
 
     // Add the required edge

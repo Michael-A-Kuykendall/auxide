@@ -113,8 +113,8 @@ fn topo_sort(graph: &Graph) -> Result<Vec<NodeId>, PlanError> {
     }
 
     let mut queue = std::collections::VecDeque::new();
-    for i in 0..graph.nodes.len() {
-        if graph.nodes[i].is_some() && in_degree[i] == 0 {
+    for (i, &deg) in in_degree.iter().enumerate().take(graph.nodes.len()) {
+        if graph.nodes[i].is_some() && deg == 0 {
             queue.push_back(NodeId(i));
         }
     }

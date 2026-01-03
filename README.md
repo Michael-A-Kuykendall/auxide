@@ -1,5 +1,10 @@
 <img src="assets/auxide-logo.png" alt="Auxide Logo" width="400">
 
+[![Crates.io](https://img.shields.io/crates/v/auxide.svg)](https://crates.io/crates/auxide)
+[![Documentation](https://docs.rs/auxide/badge.svg)](https://docs.rs/auxide)
+[![CI](https://github.com/Michael-A-Kuykendall/auxide/workflows/CI/badge.svg)](https://github.com/Michael-A-Kuykendall/auxide/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # Auxide
 
 **A real-time-safe, deterministic audio graph kernel for Rust.**  
@@ -240,7 +245,7 @@ Auxide is the foundation—build your tools on top.
 
 ## Contributing
 
-Issues and PRs welcome. Focus on RT safety and determinism.
+Issues and PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 

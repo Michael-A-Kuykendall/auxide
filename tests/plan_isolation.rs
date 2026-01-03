@@ -34,9 +34,9 @@ fn plan_isolation() {
 
     // Assert plan A remains unchanged
     let _plan_a_again = Plan::compile(&graph_a, 64).unwrap(); // Recompile original? Wait, graph_a is mutated.
-    // Wait, the test says "Mutate graph → compile plan B"
-    // But to check plan A unchanged, I need to compile the original graph again.
-    // So, I need to keep the original graph.
+                                                              // Wait, the test says "Mutate graph → compile plan B"
+                                                              // But to check plan A unchanged, I need to compile the original graph again.
+                                                              // So, I need to keep the original graph.
 
     // Let's adjust.
     let mut graph_original = Graph::new();

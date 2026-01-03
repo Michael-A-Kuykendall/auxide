@@ -1,7 +1,7 @@
 use auxide::graph::{Graph, NodeType, PortId, Rate};
 use auxide::plan::Plan;
 use auxide::rt::Runtime;
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn bench_process_block(c: &mut Criterion) {
     let mut graph = Graph::new();

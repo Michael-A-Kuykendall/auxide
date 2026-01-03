@@ -22,13 +22,15 @@ fn main() {
         let mut graph = Graph::new();
         let osc = graph.add_node(NodeType::SineOsc { freq });
         let sink = graph.add_node(NodeType::OutputSink);
-        graph.add_edge(auxide::graph::Edge {
-            from_node: osc,
-            from_port: PortId(0),
-            to_node: sink,
-            to_port: PortId(0),
-            rate: Rate::Audio,
-        }).unwrap();
+        graph
+            .add_edge(auxide::graph::Edge {
+                from_node: osc,
+                from_port: PortId(0),
+                to_node: sink,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
 
         let plan = Plan::compile(&graph, block_size).unwrap();
         let mut runtime = Runtime::new(plan, &graph, sample_rate);
