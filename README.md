@@ -1,4 +1,6 @@
-# Auxide
+<p align="center">
+  <img src="./auxide-logo.png" alt="Auxide" width="500" />
+</p>
 
 A high-performance, Rust-native framework for building real-time audio processing pipelines through a statically validated signal-graph DSL.
 
