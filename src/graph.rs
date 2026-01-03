@@ -45,6 +45,8 @@ pub struct NodeData {
     pub node_type: NodeType,
 }
 
+use crate::invariant_ppt::{assert_invariant, GRAPH_REJECTS_INVALID};
+
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 /// Types of DSP nodes available in the graph.
@@ -173,6 +175,12 @@ impl Graph {
 
         // Check for cycles (simple check: if adding would create cycle)
         if self.would_create_cycle(&edge) {
+            assert_invariant(
+                GRAPH_REJECTS_INVALID,
+                true,
+                "Graph rejects cycles",
+                Some("add_edge"),
+            );
             return Err(GraphError::CycleDetected);
         }
 

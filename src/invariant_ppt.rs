@@ -115,10 +115,7 @@ mod tests {
         clear_invariant_log();
         #[cfg(feature = "ppt")]
         {
-            INVARIANT_LOG
-                .lock()
-                .unwrap()
-                .insert(PLAN_SOUNDNESS);
+            INVARIANT_LOG.lock().unwrap().insert(PLAN_SOUNDNESS);
             contract_test("example", &[PLAN_SOUNDNESS]);
         }
 

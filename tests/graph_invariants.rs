@@ -1,4 +1,5 @@
 use auxide::graph::{Edge, Graph, GraphError, NodeId, NodeType, PortId, Rate};
+use auxide::invariant_ppt::{clear_invariant_log, contract_test, GRAPH_REJECTS_INVALID};
 use auxide::plan::Plan;
 
 #[test]
@@ -217,4 +218,14 @@ fn remove_node_stress_recompile() {
     plan = Plan::compile(&graph, 64).unwrap();
     // Should compile without issues
     assert!(plan.edges.len() > 0);
+}
+
+#[test]
+fn contract_graph_invariants() {
+    clear_invariant_log();
+    // Run tests that should trigger invariants
+    no_cycles_unless_delay();
+    input_ports_connected_or_optional();
+    // Check that invariants were enforced
+    contract_test("graph invariants", &[GRAPH_REJECTS_INVALID]);
 }

@@ -8,4 +8,5 @@
 - Invariants: single-writer, no cycles, rate compatibility.
 - Minimal DSP nodes: SineOsc, Gain, Mix, OutputSink.
 - Comprehensive tests and benchmarks.
+- PPT (Predictive Property-Based Testing) system with runtime invariant logging and contract tests.
 <parameter name="filePath">c:/Users/micha/repos/auxide/CHANGELOG.md
