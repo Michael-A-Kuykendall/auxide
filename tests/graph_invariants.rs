@@ -229,3 +229,58 @@ fn contract_graph_invariants() {
     // Check that invariants were enforced
     contract_test("graph invariants", &[GRAPH_REJECTS_INVALID]);
 }
+
+#[test]
+fn edge_direction_validation() {
+    let mut graph = Graph::new();
+    let osc = graph.add_node(NodeType::SineOsc { freq: 440.0 });
+    let gain = graph.add_node(NodeType::Gain { gain: 1.0 });
+    let mix = graph.add_node(NodeType::Mix);
+
+    // Valid: output to input
+    assert!(graph
+        .add_edge(Edge {
+            from_node: osc,
+            from_port: PortId(0), // output
+            to_node: gain,
+            to_port: PortId(0), // input
+            rate: Rate::Audio,
+        })
+        .is_ok());
+
+    // Invalid: from non-existent output port
+    assert_eq!(
+        graph.add_edge(Edge {
+            from_node: mix,
+            from_port: PortId(2), // not an output port
+            to_node: gain,
+            to_port: PortId(0), // input
+            rate: Rate::Audio,
+        }),
+        Err(GraphError::InvalidPort)
+    );
+
+    // Invalid: output to output (but since IDs overlap, use a different port)
+    // For mix, output is PortId(0), but to connect to output, but since we check to is input, it's ok as long as to is input.
+    // Actually, the direction check prevents connecting to outputs because we require to_port to be in inputs.
+    // So the test for output to output is not possible because to must be input.
+    // The invalid is only from input ports.
+}
+
+#[test]
+fn invalid_node_bounds_check() {
+    let mut graph = Graph::new();
+    let osc = graph.add_node(NodeType::SineOsc { freq: 440.0 });
+
+    // Try to add edge with invalid node ID
+    assert_eq!(
+        graph.add_edge(Edge {
+            from_node: NodeId(999), // out of bounds
+            from_port: PortId(0),
+            to_node: osc,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        }),
+        Err(GraphError::InvalidNode)
+    );
+}

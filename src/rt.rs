@@ -100,10 +100,13 @@ impl Runtime {
                     }
                     NodeType::SineOsc { freq } => {
                         if let NodeState::SineOsc { phase } = node_state {
+                            let step = 2.0 * std::f32::consts::PI * freq / self.sample_rate;
                             for output in outputs.iter_mut() {
                                 for sample in output.iter_mut() {
                                     *sample = phase.sin();
-                                    *phase += 2.0 * std::f32::consts::PI * freq / self.sample_rate;
+                                    *phase += step;
+                                    // Wrap phase to prevent precision loss over long sessions
+                                    *phase = *phase % (2.0 * std::f32::consts::PI);
                                 }
                             }
                         }
@@ -152,6 +155,7 @@ impl Runtime {
 
 /// Render offline to a buffer.
 pub fn render_offline(runtime: &mut Runtime, frames: usize) -> Vec<f32> {
+    assert!(runtime.plan.block_size > 0, "Block size must be > 0 to avoid infinite loop");
     let mut output = vec![0.0; frames];
     let block_size = runtime.plan.block_size;
     let mut offset = 0;

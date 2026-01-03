@@ -30,6 +30,9 @@ pub struct Plan {
 impl Plan {
     /// Create a plan from a graph.
     pub fn compile(graph: &Graph, block_size: usize) -> Result<Self, PlanError> {
+        if block_size == 0 {
+            return Err(PlanError::InvalidBlockSize);
+        }
         // Topological sort
         let order = topo_sort(graph)?;
 
@@ -100,6 +103,7 @@ pub enum PlanError {
     CycleDetected,
     RequiredInputMissing { node: NodeId },
     MultipleWritersToInput { node: NodeId, port: PortId },
+    InvalidBlockSize,
 }
 
 /// Topological sort of nodes.

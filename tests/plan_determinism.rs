@@ -22,3 +22,21 @@ fn plan_deterministic_compilation() {
     assert_eq!(plan1.edges, plan2.edges);
     // Also buffer indices, but since edges are the same, assume ok.
 }
+
+#[test]
+fn plan_rejects_zero_block_size() {
+    let mut graph = Graph::new();
+    let node1 = graph.add_node(NodeType::Dummy);
+    let node2 = graph.add_node(NodeType::OutputSink);
+    graph
+        .add_edge(Edge {
+            from_node: node1,
+            from_port: PortId(0),
+            to_node: node2,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
+
+    assert!(Plan::compile(&graph, 0).is_err());
+}

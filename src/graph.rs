@@ -165,6 +165,20 @@ impl Graph {
 
     /// Add an edge, validating rates match and no cycles.
     pub fn add_edge(&mut self, edge: Edge) -> Result<(), GraphError> {
+        // Validate node existence and get node data
+        let from_node_data = self.nodes.get(edge.from_node.0).and_then(|n| n.as_ref()).ok_or(GraphError::InvalidNode)?;
+        let to_node_data = self.nodes.get(edge.to_node.0).and_then(|n| n.as_ref()).ok_or(GraphError::InvalidNode)?;
+
+        // Check that from_port is an output port
+        if !from_node_data.outputs.iter().any(|p| p.id == edge.from_port) {
+            return Err(GraphError::InvalidPort);
+        }
+
+        // Check that to_port is an input port
+        if !to_node_data.inputs.iter().any(|p| p.id == edge.to_port) {
+            return Err(GraphError::InvalidPort);
+        }
+
         // Check rate mismatch
         if edge.rate != self.get_port_rate(edge.from_node, edge.from_port)? {
             return Err(GraphError::RateMismatch);
@@ -207,6 +221,9 @@ impl Graph {
     }
 
     fn get_port_rate(&self, node_id: NodeId, port_id: PortId) -> Result<Rate, GraphError> {
+        if node_id.0 >= self.nodes.len() {
+            return Err(GraphError::InvalidNode);
+        }
         let node = &self.nodes[node_id.0];
         let node = node.as_ref().ok_or(GraphError::InvalidNode)?;
         for port in &node.inputs {
