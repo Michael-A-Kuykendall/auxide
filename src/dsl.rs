@@ -1,5 +1,8 @@
 //! DSL module: builder API for graphs.
 
+#![forbid(unsafe_code)]
+// #![deny(missing_docs)]
+
     use crate::graph::{Graph, GraphError, NodeId, NodeType, PortId, Rate};
 use std::collections::HashMap;
 

@@ -2,6 +2,9 @@
 
 // IMPORTANT: Do not call assert_invariant or any PPT logging in RT paths to avoid locks/allocs.
 
+#![forbid(unsafe_code)]
+// #![deny(missing_docs)]
+
 use crate::graph::{Graph, NodeType};
 use crate::plan::Plan;
 

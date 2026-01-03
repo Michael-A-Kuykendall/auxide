@@ -1,5 +1,8 @@
 //! Plan module: compile graph into executable plan.
 
+#![forbid(unsafe_code)]
+// #![deny(missing_docs)]
+
 use crate::graph::{Graph, NodeId, PortId, Rate};
 
 /// Edge spec for the plan.

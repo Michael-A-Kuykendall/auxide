@@ -1,5 +1,8 @@
 //! Graph module for Auxide: correct-by-construction signal graphs.
 
+#![forbid(unsafe_code)]
+// #![deny(missing_docs)]
+
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Rate {
@@ -127,6 +130,14 @@ impl Graph {
 
         self.edges.push(edge);
         Ok(())
+    }
+
+    /// Remove a node and all edges connected to it.
+    pub fn remove_node(&mut self, node_id: NodeId) {
+        // Remove the node
+        self.nodes.retain(|n| n.id != node_id);
+        // Remove edges connected to the node
+        self.edges.retain(|e| e.from_node != node_id && e.to_node != node_id);
     }
 
     fn get_port_rate(&self, node_id: NodeId, port_id: PortId) -> Result<Rate, GraphError> {

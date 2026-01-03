@@ -1,5 +1,8 @@
 //! RT Proof Harness: Empirical proofs for RT guarantees.
 
+// #![forbid(unsafe_code)]
+// #![deny(missing_docs)]
+
 use crate::graph::Graph;
 use crate::plan::Plan;
 use crate::rt::Runtime;
