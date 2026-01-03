@@ -3,7 +3,7 @@
 #![forbid(unsafe_code)]
 // #![deny(missing_docs)]
 
-    use crate::graph::{Graph, GraphError, NodeId, NodeType, PortId, Rate};
+use crate::graph::{Graph, GraphError, NodeId, NodeType, PortId, Rate};
 use std::collections::HashMap;
 
 /// Handle to a node in the builder.

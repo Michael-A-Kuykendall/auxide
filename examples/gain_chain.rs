@@ -33,10 +33,10 @@ fn main() {
     }).unwrap();
 
     let plan = Plan::compile(&graph, 64).unwrap();
-    let mut runtime = Runtime::new(plan, &graph);
+    let mut runtime = Runtime::new(plan, &graph, 44100.0);
 
     let mut out = vec![0.0; 64];
-    runtime.process_block(&mut out);
+    runtime.process_block(&mut out).unwrap();
 
     println!("Gain chain output: {}", out[0]);
 }

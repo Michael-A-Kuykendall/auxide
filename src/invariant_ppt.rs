@@ -62,7 +62,7 @@ pub fn assert_invariant(_id: u32, condition: bool, message: &str, _context: Opti
 
 #[cfg(feature = "ppt")]
 /// Contract test: checks that specified invariants were asserted.
-pub(crate) fn contract_test(test_name: &str, required_invariants: &[u32]) {
+pub fn contract_test(test_name: &str, required_invariants: &[u32]) {
     let log = INVARIANT_LOG.lock().unwrap();
     let mut missing = Vec::new();
     for &inv in required_invariants {
@@ -81,7 +81,7 @@ pub(crate) fn contract_test(test_name: &str, required_invariants: &[u32]) {
 
 #[cfg(not(feature = "ppt"))]
 /// Contract test: no-op when PPT feature is disabled.
-pub fn contract_test(_test_name: &str, _required_invariants: &[&str]) {}
+pub fn contract_test(_test_name: &str, _required_invariants: &[u32]) {}
 
 #[cfg(feature = "ppt")]
 /// Clear invariant log (for between test runs).
@@ -118,14 +118,14 @@ mod tests {
             INVARIANT_LOG
                 .lock()
                 .unwrap()
-                .insert("Test invariant:".to_string());
-            contract_test("example", &["Test invariant"]);
+                .insert(PLAN_SOUNDNESS);
+            contract_test("example", &[PLAN_SOUNDNESS]);
         }
 
         #[cfg(not(feature = "ppt"))]
         {
             // When PPT is disabled, contract tests are a no-op.
-            contract_test("example", &["Test invariant"]);
+            contract_test("example", &[PLAN_SOUNDNESS]);
         }
     }
 }

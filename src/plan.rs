@@ -23,6 +23,8 @@ pub struct Plan {
     pub node_outputs: Vec<Vec<(usize, PortId)>>, // (edge_idx, port)
     pub edges: Vec<EdgeSpec>,
     pub block_size: usize,
+    pub max_inputs: usize,
+    pub max_outputs: usize,
 }
 
 impl Plan {
@@ -40,6 +42,14 @@ impl Plan {
             rate: e.rate.clone(),
         }).collect();
 
+        // Validate single-writer: each input port has at most one edge
+        let mut input_ports = std::collections::HashSet::new();
+        for edge in &edges {
+            if !input_ports.insert((edge.to_node, edge.to_port)) {
+                return Err(PlanError::MultipleWritersToInput { node: edge.to_node, port: edge.to_port });
+            }
+        }
+
         // Build node_inputs and node_outputs
         let mut node_inputs = vec![vec![]; graph.nodes.len()];
         let mut node_outputs = vec![vec![]; graph.nodes.len()];
@@ -48,12 +58,26 @@ impl Plan {
             node_outputs[edge.from_node.0].push((edge_idx, edge.from_port));
         }
 
+        let max_inputs = node_inputs.iter().map(|v| v.len()).max().unwrap_or(0);
+        let max_outputs = node_outputs.iter().map(|v| v.len()).max().unwrap_or(0);
+
+        // Validate required inputs
+        for node_data in graph.nodes.iter().flatten() {
+            let required = node_data.node_type.required_inputs();
+            let connected = graph.edges.iter().filter(|e| e.to_node == node_data.id).count();
+            if connected < required {
+                return Err(PlanError::RequiredInputMissing { node: node_data.id });
+            }
+        }
+
         let plan = Self {
             order,
             node_inputs,
             node_outputs,
             edges,
             block_size,
+            max_inputs,
+            max_outputs,
         };
         Ok(plan)
     }
@@ -63,6 +87,8 @@ impl Plan {
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlanError {
     CycleDetected,
+    RequiredInputMissing { node: NodeId },
+    MultipleWritersToInput { node: NodeId, port: PortId },
 }
 
 /// Topological sort of nodes.
@@ -76,8 +102,8 @@ fn topo_sort(graph: &Graph) -> Result<Vec<NodeId>, PlanError> {
     }
 
     let mut queue = std::collections::VecDeque::new();
-    for (i, &deg) in in_degree.iter().enumerate() {
-        if deg == 0 {
+    for i in 0..graph.nodes.len() {
+        if graph.nodes[i].is_some() && in_degree[i] == 0 {
             queue.push_back(NodeId(i));
         }
     }
@@ -87,13 +113,14 @@ fn topo_sort(graph: &Graph) -> Result<Vec<NodeId>, PlanError> {
         order.push(node);
         for &neighbor in &adj[node.0] {
             in_degree[neighbor.0] -= 1;
-            if in_degree[neighbor.0] == 0 {
+            if graph.nodes[neighbor.0].is_some() && in_degree[neighbor.0] == 0 {
                 queue.push_back(neighbor);
             }
         }
     }
 
-    if order.len() == graph.nodes.len() {
+    let valid_count = graph.nodes.iter().filter(|n| n.is_some()).count();
+    if order.len() == valid_count {
         Ok(order)
     } else {
         Err(PlanError::CycleDetected)

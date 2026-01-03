@@ -25,7 +25,7 @@ fn dsp_gain_mix_algebra() {
     }).unwrap();
 
     let plan = Plan::compile(&graph, 64).unwrap();
-    let mut runtime = Runtime::new(plan, &graph);
+    let mut runtime = Runtime::new(plan, &graph, 44100.0);
     let output = render_offline(&mut runtime, 64);
     assert!(output.iter().all(|&s| s.abs() < 0.01), "Gain(0) should produce silence");
 
@@ -50,7 +50,7 @@ fn dsp_gain_mix_algebra() {
     }).unwrap();
 
     let plan2 = Plan::compile(&graph2, 64).unwrap();
-    let mut runtime2 = Runtime::new(plan2, &graph2);
+    let mut runtime2 = Runtime::new(plan2, &graph2, 44100.0);
     let output2 = render_offline(&mut runtime2, 64);
 
     // Compare to direct osc
@@ -66,7 +66,7 @@ fn dsp_gain_mix_algebra() {
     }).unwrap();
 
     let plan3 = Plan::compile(&graph3, 64).unwrap();
-    let mut runtime3 = Runtime::new(plan3, &graph3);
+    let mut runtime3 = Runtime::new(plan3, &graph3, 44100.0);
     let output3 = render_offline(&mut runtime3, 64);
 
     for (a, b) in output2.iter().zip(output3.iter()) {
@@ -102,7 +102,7 @@ fn dsp_gain_mix_algebra() {
     }).unwrap();
 
     let plan4 = Plan::compile(&graph4, 64).unwrap();
-    let mut runtime4 = Runtime::new(plan4, &graph4);
+    let mut runtime4 = Runtime::new(plan4, &graph4, 44100.0);
     let output4 = render_offline(&mut runtime4, 64);
 
     // Sum of two oscs

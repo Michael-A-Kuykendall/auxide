@@ -6,6 +6,8 @@ license = "MIT"
 readme = "README.md"
 repository = "https://github.com/Michael-A-Kuykendall/auxide"
 description = "Real-time-safe, deterministic audio graph kernel"
+keywords = ["audio", "graph", "real-time", "dsp", "kernel"]
+categories = ["multimedia::audio", "concurrency"]
 
 [features]
 ppt = []

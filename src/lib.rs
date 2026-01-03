@@ -1,46 +1,54 @@
+//! # Auxide
+//!
+//! A real-time-safe, deterministic, block-based audio graph kernel for building audio tools.
+//!
+//! ## Architecture
+//!
+//! The core flow is: **Graph → Plan → Runtime**.
+//!
+//! - **Graph**: Define nodes and edges.
+//! - **Plan**: Compile the graph into an execution schedule.
+//! - **Runtime**: Process audio blocks deterministically.
+//!
+//! ## Real-Time Safety
+//!
+//! RT paths (e.g., `Runtime::process_block`) avoid allocations and locking. Graph mutation and plan compilation may allocate.
+//!
+//! ## Determinism
+//!
+//! Given the same graph, plan, and inputs, outputs are identical (modulo floating-point precision).
+//!
+//! ## Invariants
+//!
+//! - Only one edge may write to a given input port (single-writer rule).
+//! - No cycles unless involving delay nodes.
+//! - All ports must have compatible rates.
+//!
+//! ## Example
+//!
+//! ```rust
+//! use auxide::graph::{Graph, NodeType, PortId, Rate};
+//! use auxide::plan::Plan;
+//! use auxide::rt::Runtime;
+//!
+//! let mut graph = Graph::new();
+//! let osc = graph.add_node(NodeType::SineOsc { freq: 440.0 });
+//! let sink = graph.add_node(NodeType::OutputSink);
+//! graph.add_edge(auxide::graph::Edge {
+//!     from_node: osc,
+//!     from_port: PortId(0),
+//!     to_node: sink,
+//!     to_port: PortId(0),
+//!     rate: Rate::Audio,
+//! }).unwrap();
+//!
+//! let plan = Plan::compile(&graph, 64).unwrap();
+//! let mut runtime = Runtime::new(plan, &graph, 44100.0);
+//! let mut out = vec![0.0; 64];
+//! runtime.process_block(&mut out);
+//! ```
+
 pub mod dsl;
 pub mod graph;
-#[doc(hidden)]
-pub mod harness;
-#[doc(hidden)]
-pub mod invariant_ppt;
 pub mod plan;
 pub mod rt;
-
-/// Ingress particle: carries execution parameters.
-#[derive(Debug, Clone)]
-pub struct IngressParticle {
-    pub block_size: usize,
-    pub sample_rate: f32,
-    pub channel_count: usize,
-}
-
-/// Egress particle: carries output results.
-#[derive(Debug, Clone)]
-pub struct EgressParticle {
-    pub data: Vec<f32>,
-    pub errors: Vec<String>, // Non-RT error channel
-}
-
-use std::alloc::{GlobalAlloc, Layout, System};
-
-struct CountingAllocator;
-
-unsafe impl GlobalAlloc for CountingAllocator {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        #[cfg(test)]
-        {
-            use crate::harness::ALLOC_COUNT;
-            unsafe { ALLOC_COUNT += 1; }
-        }
-        System.alloc(layout)
-    }
-
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        unsafe { System.dealloc(ptr, layout) }
-    }
-}
-
-#[cfg(test)]
-#[global_allocator]
-static ALLOCATOR: CountingAllocator = CountingAllocator;

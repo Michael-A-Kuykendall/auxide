@@ -1,4 +1,4 @@
-use auxide::graph::{Edge, Graph, NodeId, NodeType, PortId, Rate};
+use auxide::graph::{Edge, Graph, NodeType, PortId, Rate};
 use auxide::plan::Plan;
 
 #[test]

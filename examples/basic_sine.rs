@@ -19,11 +19,11 @@ fn main() {
     let plan = Plan::compile(&graph, 64).unwrap();
 
     // Create runtime
-    let mut runtime = Runtime::new(plan, &graph);
+    let mut runtime = Runtime::new(plan, &graph, 44100.0);
 
     // Process a block
     let mut out = vec![0.0; 64];
-    runtime.process_block(&mut out);
+    runtime.process_block(&mut out).unwrap();
 
     // Print first few samples
     for i in 0..10 {

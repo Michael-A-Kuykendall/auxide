@@ -78,12 +78,20 @@ impl NodeType {
             NodeType::OutputSink => vec![],
         }
     }
+
+    pub fn required_inputs(&self) -> usize {
+        match self {
+            NodeType::Gain { .. } => 1,
+            NodeType::OutputSink => 1,
+            _ => 0,
+        }
+    }
 }
 
 /// The signal graph: a DAG of nodes and edges.
 #[derive(Debug, Clone)]
 pub struct Graph {
-    pub nodes: Vec<NodeData>,
+    pub nodes: Vec<Option<NodeData>>,
     pub edges: Vec<Edge>,
 }
 
@@ -93,6 +101,8 @@ pub enum GraphError {
     RateMismatch,
     CycleDetected,
     InvalidPort,
+    InvalidNode,
+    PortAlreadyConnected,
 }
 
 impl Graph {
@@ -109,7 +119,7 @@ impl Graph {
         let inputs = node_type.input_ports();
         let outputs = node_type.output_ports();
         let id = NodeId(self.nodes.len());
-        self.nodes.push(NodeData { id, inputs, outputs, node_type });
+        self.nodes.push(Some(NodeData { id, inputs, outputs, node_type }));
         id
     }
 
@@ -128,6 +138,11 @@ impl Graph {
             return Err(GraphError::CycleDetected);
         }
 
+        // Check if port is already connected
+        if self.edges.iter().any(|e| e.to_node == edge.to_node && e.to_port == edge.to_port) {
+            return Err(GraphError::PortAlreadyConnected);
+        }
+
         self.edges.push(edge);
         Ok(())
     }
@@ -135,13 +150,14 @@ impl Graph {
     /// Remove a node and all edges connected to it.
     pub fn remove_node(&mut self, node_id: NodeId) {
         // Remove the node
-        self.nodes.retain(|n| n.id != node_id);
+        self.nodes[node_id.0] = None;
         // Remove edges connected to the node
         self.edges.retain(|e| e.from_node != node_id && e.to_node != node_id);
     }
 
     fn get_port_rate(&self, node_id: NodeId, port_id: PortId) -> Result<Rate, GraphError> {
         let node = &self.nodes[node_id.0];
+        let node = node.as_ref().ok_or(GraphError::InvalidNode)?;
         for port in &node.inputs {
             if port.id == port_id {
                 return Ok(port.rate.clone());
@@ -188,7 +204,6 @@ impl Default for Graph {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::invariant_ppt::clear_invariant_log;
     use proptest::prelude::*;
 
     #[test]
@@ -208,7 +223,6 @@ mod tests {
 
     #[test]
     fn graph_cycle_detection() {
-        clear_invariant_log();
         let mut graph = Graph::new();
         let node1 = graph.add_node(NodeType::Dummy);
         let node2 = graph.add_node(NodeType::Mix);

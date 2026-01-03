@@ -1,4 +1,4 @@
-use auxide::graph::{Graph, NodeType, PortId, Rate};
+use auxide::graph::{Graph, NodeType, PortId};
 use auxide::plan::Plan;
 use auxide::rt::{render_offline, Runtime};
 
@@ -16,7 +16,7 @@ fn dsp_osc_correctness() {
     }).unwrap();
 
     let plan = Plan::compile(&graph, 64).unwrap();
-    let mut runtime = Runtime::new(plan, &graph);
+    let mut runtime = Runtime::new(plan, &graph, 44100.0);
     let output = render_offline(&mut runtime, 64);
 
     // Check no DC offset: for a full period, but for now, skip
