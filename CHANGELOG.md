@@ -9,4 +9,5 @@
 - Minimal DSP nodes: SineOsc, Gain, Mix, OutputSink.
 - Comprehensive tests and benchmarks.
 - PPT (Predictive Property-Based Testing) system with runtime invariant logging and contract tests.
+- **Correctness hardening**: Reject invalid block sizes, enforce edge directions, bounds checks, phase wrapping.
 <parameter name="filePath">c:/Users/micha/repos/auxide/CHANGELOG.md
