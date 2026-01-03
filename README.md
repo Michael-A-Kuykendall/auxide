@@ -257,6 +257,17 @@ Auxide is the foundation—build your tools on top.
 
 Issues and PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+## Sponsorship
+
+🚀 **If Auxide helps you, consider [sponsoring](https://github.com/sponsors/Michael-A-Kuykendall) — 100% of support goes to keeping it free forever.**
+
+- **$5/month**: Coffee tier ☕ - Eternal gratitude + sponsor badge
+- **$25/month**: Bug prioritizer 🐛 - Priority support + name in [SPONSORS.md](SPONSORS.md)
+- **$100/month**: Corporate backer 🏢 - Logo placement + monthly office hours
+- **$500/month**: Infrastructure partner 🚀 - Direct support + roadmap input
+
+[**🎯 Become a Sponsor**](https://github.com/sponsors/Michael-A-Kuykendall) | See our amazing [sponsors](SPONSORS.md) 🙏
+
 ## License
 
 MIT
