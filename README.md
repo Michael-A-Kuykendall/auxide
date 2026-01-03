@@ -30,6 +30,14 @@ Existing options are either:
 
 Auxide is **engineer-friendly**: Minimal API, zero-cost abstractions, RT-safe by default. It's designed for software developers building audio tools, not musicians coding live.
 
+| Feature          | Auxide | SuperCollider | Rodio | CPAL |
+|------------------|--------|---------------|-------|-----|
+| RT-Safe         | ✅    | ❌            | ❌   | ✅  |
+| Graph-Based     | ✅    | ✅            | ❌   | ❌  |
+| Deterministic   | ✅    | ❌            | ❌   | ❌  |
+| Minimal API     | ✅    | ❌            | ✅   | ✅  |
+| Rust Native     | ✅    | ❌            | ✅   | ✅  |
+
 ## Architecture
 
 Auxide's three-phase pipeline ensures reliability:
@@ -201,7 +209,8 @@ Check `examples/` for:
 - `gain_chain.rs`: Signal processing chain.
 - `mixer.rs`: Multi-input mixing.
 - `offline_render.rs`: Full buffer rendering.
-- `fm_synth.rs`: Frequency modulation demo.
+- `am_synth.rs`: Amplitude modulation demo.
+- `filter_chain.rs`: Basic filter approximation.
 - `sequencer.rs`: Note sequencing.
 
 Clone the repo and run `cargo run --example <name>` to explore.
@@ -227,6 +236,7 @@ Pair with `cpal` for playback, `hound` for file I/O.
 - **Minimal**: Small API surface, easy to learn.
 - **Extensible**: Add nodes via traits.
 - **Tested**: Fuzzing, property tests, benchmarks.
+- **Performant**: Low-latency block processing (benchmarks show stable timing under load).
 
 ## Non-Goals
 

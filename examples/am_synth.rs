@@ -1,7 +1,7 @@
-//! Simple FM Synthesis Example
+//! Simple AM Synthesis Example
 //!
-//! Demonstrates using Auxide for frequency modulation.
-//! A low-frequency oscillator modulates the frequency of a carrier oscillator.
+//! Demonstrates using Auxide for amplitude modulation.
+//! A low-frequency oscillator modulates the amplitude of a carrier oscillator.
 
 use auxide::graph::{Graph, NodeType, PortId, Rate};
 use auxide::plan::Plan;
@@ -53,5 +53,5 @@ fn main() {
     let mut out = vec![0.0; 64];
     runtime.process_block(&mut out).unwrap();
 
-    println!("Generated FM-like audio block");
+    println!("Generated AM audio block");
 }
