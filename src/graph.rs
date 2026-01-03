@@ -47,34 +47,67 @@ pub struct NodeData {
 
 #[non_exhaustive]
 #[derive(Debug, Clone)]
+/// Types of DSP nodes available in the graph.
 pub enum NodeType {
+    /// Sine wave oscillator.
     SineOsc { freq: f32 },
+    /// Gain/multiplication node.
     Gain { gain: f32 },
+    /// Mixer node (sums two inputs).
     Mix,
+    /// Output sink (terminates the graph).
     OutputSink,
+    /// Dummy node for testing.
     Dummy, // For testing
 }
 
 impl NodeType {
     pub fn input_ports(&self) -> Vec<Port> {
         match self {
-            NodeType::Dummy => vec![Port { id: PortId(0), rate: Rate::Audio }],
+            NodeType::Dummy => vec![Port {
+                id: PortId(0),
+                rate: Rate::Audio,
+            }],
             NodeType::SineOsc { .. } => vec![],
-            NodeType::Gain { .. } => vec![Port { id: PortId(0), rate: Rate::Audio }],
+            NodeType::Gain { .. } => vec![Port {
+                id: PortId(0),
+                rate: Rate::Audio,
+            }],
             NodeType::Mix => vec![
-                Port { id: PortId(0), rate: Rate::Audio },
-                Port { id: PortId(1), rate: Rate::Audio },
+                Port {
+                    id: PortId(0),
+                    rate: Rate::Audio,
+                },
+                Port {
+                    id: PortId(1),
+                    rate: Rate::Audio,
+                },
             ],
-            NodeType::OutputSink => vec![Port { id: PortId(0), rate: Rate::Audio }],
+            NodeType::OutputSink => vec![Port {
+                id: PortId(0),
+                rate: Rate::Audio,
+            }],
         }
     }
 
     pub fn output_ports(&self) -> Vec<Port> {
         match self {
-            NodeType::Dummy => vec![Port { id: PortId(0), rate: Rate::Audio }],
-            NodeType::SineOsc { .. } => vec![Port { id: PortId(0), rate: Rate::Audio }],
-            NodeType::Gain { .. } => vec![Port { id: PortId(0), rate: Rate::Audio }],
-            NodeType::Mix => vec![Port { id: PortId(0), rate: Rate::Audio }],
+            NodeType::Dummy => vec![Port {
+                id: PortId(0),
+                rate: Rate::Audio,
+            }],
+            NodeType::SineOsc { .. } => vec![Port {
+                id: PortId(0),
+                rate: Rate::Audio,
+            }],
+            NodeType::Gain { .. } => vec![Port {
+                id: PortId(0),
+                rate: Rate::Audio,
+            }],
+            NodeType::Mix => vec![Port {
+                id: PortId(0),
+                rate: Rate::Audio,
+            }],
             NodeType::OutputSink => vec![],
         }
     }
@@ -119,7 +152,12 @@ impl Graph {
         let inputs = node_type.input_ports();
         let outputs = node_type.output_ports();
         let id = NodeId(self.nodes.len());
-        self.nodes.push(Some(NodeData { id, inputs, outputs, node_type }));
+        self.nodes.push(Some(NodeData {
+            id,
+            inputs,
+            outputs,
+            node_type,
+        }));
         id
     }
 
@@ -139,7 +177,11 @@ impl Graph {
         }
 
         // Check if port is already connected
-        if self.edges.iter().any(|e| e.to_node == edge.to_node && e.to_port == edge.to_port) {
+        if self
+            .edges
+            .iter()
+            .any(|e| e.to_node == edge.to_node && e.to_port == edge.to_port)
+        {
             return Err(GraphError::PortAlreadyConnected);
         }
 
@@ -152,7 +194,8 @@ impl Graph {
         // Remove the node
         self.nodes[node_id.0] = None;
         // Remove edges connected to the node
-        self.edges.retain(|e| e.from_node != node_id && e.to_node != node_id);
+        self.edges
+            .retain(|e| e.from_node != node_id && e.to_node != node_id);
     }
 
     fn get_port_rate(&self, node_id: NodeId, port_id: PortId) -> Result<Rate, GraphError> {

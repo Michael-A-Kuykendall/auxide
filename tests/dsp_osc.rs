@@ -1,19 +1,21 @@
 use auxide::graph::{Graph, NodeType, PortId};
 use auxide::plan::Plan;
-use auxide::rt::{render_offline, Runtime};
+use auxide::rt::{Runtime, render_offline};
 
 #[test]
 fn dsp_osc_correctness() {
     let mut graph = Graph::new();
     let osc = graph.add_node(NodeType::SineOsc { freq: 440.0 });
     let sink = graph.add_node(NodeType::OutputSink);
-    graph.add_edge(auxide::graph::Edge {
-        from_node: osc,
-        from_port: PortId(0),
-        to_node: sink,
-        to_port: PortId(0),
-        rate: auxide::graph::Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: osc,
+            from_port: PortId(0),
+            to_node: sink,
+            to_port: PortId(0),
+            rate: auxide::graph::Rate::Audio,
+        })
+        .unwrap();
 
     let plan = Plan::compile(&graph, 64).unwrap();
     let mut runtime = Runtime::new(plan, &graph, 44100.0);
@@ -36,10 +38,14 @@ fn dsp_osc_correctness() {
     // More precise: check zero crossings
     let mut zero_crossings = 0;
     for i in 1..output.len() {
-        if output[i-1] * output[i] < 0.0 {
+        if output[i - 1] * output[i] < 0.0 {
             zero_crossings += 1;
         }
     }
     // For 440 Hz at 44100, period 100.22, in 64 samples ~0.64 periods, ~1-2 crossings
-    assert!(zero_crossings >= 1 && zero_crossings <= 3, "Zero crossings: {}", zero_crossings);
+    assert!(
+        zero_crossings >= 1 && zero_crossings <= 3,
+        "Zero crossings: {}",
+        zero_crossings
+    );
 }

@@ -8,24 +8,28 @@ fn plan_isolation() {
     let mut graph_a = Graph::new();
     let node1 = graph_a.add_node(NodeType::Dummy);
     let node2 = graph_a.add_node(NodeType::OutputSink);
-    graph_a.add_edge(Edge {
-        from_node: node1,
-        from_port: PortId(0),
-        to_node: node2,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph_a
+        .add_edge(Edge {
+            from_node: node1,
+            from_port: PortId(0),
+            to_node: node2,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
     let _plan_a = Plan::compile(&graph_a, 64).unwrap();
 
     // Mutate graph → compile plan B
     let node3 = graph_a.add_node(NodeType::Gain { gain: 2.0 });
-    graph_a.add_edge(Edge {
-        from_node: node1,
-        from_port: PortId(0),
-        to_node: node3,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph_a
+        .add_edge(Edge {
+            from_node: node1,
+            from_port: PortId(0),
+            to_node: node3,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
     let _plan_b = Plan::compile(&graph_a, 64).unwrap();
 
     // Assert plan A remains unchanged
@@ -38,25 +42,29 @@ fn plan_isolation() {
     let mut graph_original = Graph::new();
     let node1 = graph_original.add_node(NodeType::Dummy);
     let node2 = graph_original.add_node(NodeType::OutputSink);
-    graph_original.add_edge(Edge {
-        from_node: node1,
-        from_port: PortId(0),
-        to_node: node2,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph_original
+        .add_edge(Edge {
+            from_node: node1,
+            from_port: PortId(0),
+            to_node: node2,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
     let plan_a = Plan::compile(&graph_original, 64).unwrap();
 
     // Mutate a copy
     let mut graph_mutated = graph_original.clone();
     let node3 = graph_mutated.add_node(NodeType::Gain { gain: 2.0 });
-    graph_mutated.add_edge(Edge {
-        from_node: node1,
-        from_port: PortId(0),
-        to_node: node3,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph_mutated
+        .add_edge(Edge {
+            from_node: node1,
+            from_port: PortId(0),
+            to_node: node3,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
     let _plan_b = Plan::compile(&graph_mutated, 64).unwrap();
 
     // Assert plan A remains unchanged (recompile original)

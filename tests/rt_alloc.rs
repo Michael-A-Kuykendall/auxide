@@ -37,5 +37,8 @@ fn rt_alloc_invariant() {
         runtime.process_block(&mut out).unwrap();
     }
     let final_count = ALLOC_COUNT.with(|c| *c.borrow());
-    assert_eq!(final_count, after_new, "RT process_block should not allocate");
+    assert_eq!(
+        final_count, after_new,
+        "RT process_block should not allocate"
+    );
 }

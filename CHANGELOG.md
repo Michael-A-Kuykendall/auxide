@@ -6,6 +6,6 @@
 - RT-safe block processing with no allocs/locks in hot paths.
 - Deterministic execution.
 - Invariants: single-writer, no cycles, rate compatibility.
-- Minimal DSP nodes: SineOsc, Gain, Mixer, Silence, OutputSink.
-- Comprehensive tests and benchmarks.</content>
+- Minimal DSP nodes: SineOsc, Gain, Mix, OutputSink.
+- Comprehensive tests and benchmarks.
 <parameter name="filePath">c:/Users/micha/repos/auxide/CHANGELOG.md

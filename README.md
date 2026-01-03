@@ -22,6 +22,10 @@ graph.add_edge(auxide::graph::Edge {
 
 let plan = Plan::compile(&graph, 64).unwrap();
 let mut runtime = Runtime::new(plan, &graph, 44100.0);
+let mut out = vec![0.0; 64];
+runtime.process_block(&mut out);
+```
+
 ## Fan-Out/Mix Example
 
 ```rust
@@ -33,7 +37,7 @@ let mut graph = Graph::new();
 let osc = graph.add_node(NodeType::SineOsc { freq: 440.0 });
 let gain1 = graph.add_node(NodeType::Gain { gain: 0.5 });
 let gain2 = graph.add_node(NodeType::Gain { gain: 0.3 });
-let mixer = graph.add_node(NodeType::Mixer);
+let mixer = graph.add_node(NodeType::Mix);
 let sink = graph.add_node(NodeType::OutputSink);
 
 // Fan out: osc to both gains

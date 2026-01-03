@@ -8,8 +8,24 @@ fn bench_process_block(c: &mut Criterion) {
     let osc = graph.add_node(NodeType::SineOsc { freq: 440.0 });
     let gain = graph.add_node(NodeType::Gain { gain: 0.5 });
     let out_node = graph.add_node(NodeType::OutputSink);
-    graph.add_edge(auxide::graph::Edge { from_node: osc, from_port: PortId(0), to_node: gain, to_port: PortId(0), rate: Rate::Audio }).unwrap();
-    graph.add_edge(auxide::graph::Edge { from_node: gain, from_port: PortId(0), to_node: out_node, to_port: PortId(0), rate: Rate::Audio }).unwrap();
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: osc,
+            from_port: PortId(0),
+            to_node: gain,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: gain,
+            from_port: PortId(0),
+            to_node: out_node,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
     let plan = Plan::compile(&graph, 1024).unwrap();
     let mut runtime = Runtime::new(plan, &graph, 44100.0);
     let mut out = vec![0.0; 1024];
@@ -28,23 +44,27 @@ fn bench_timing_stability(c: &mut Criterion) {
     let mut prev = graph.add_node(NodeType::SineOsc { freq: 440.0 });
     for _ in 0..10 {
         let next = graph.add_node(NodeType::Gain { gain: 1.0 });
-        graph.add_edge(auxide::graph::Edge {
-            from_node: prev,
-            from_port: PortId(0),
-            to_node: next,
-            to_port: PortId(0),
-            rate: Rate::Audio,
-        }).unwrap();
+        graph
+            .add_edge(auxide::graph::Edge {
+                from_node: prev,
+                from_port: PortId(0),
+                to_node: next,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
         prev = next;
     }
     let sink = graph.add_node(NodeType::OutputSink);
-    graph.add_edge(auxide::graph::Edge {
-        from_node: prev,
-        from_port: PortId(0),
-        to_node: sink,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: prev,
+            from_port: PortId(0),
+            to_node: sink,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
 
     let plan = Plan::compile(&graph, 64).unwrap();
     let mut runtime = Runtime::new(plan, &graph, 44100.0);

@@ -15,7 +15,10 @@ fn node_type_strategy() -> impl Strategy<Value = NodeType> {
 fn edge_strategy(num_nodes: usize) -> impl Strategy<Value = (usize, usize, usize, usize)> {
     (0..num_nodes).prop_flat_map(move |from| {
         (0..num_nodes)
-            .prop_filter_map("no self", move |to| if to != from { Some(to) } else { None })
+            .prop_filter_map(
+                "no self",
+                move |to| if to != from { Some(to) } else { None },
+            )
             .prop_map(move |to| (from, to, 0, 0))
     })
 }
@@ -32,7 +35,10 @@ fn graph_strategy() -> impl Strategy<Value = Graph> {
         })
         .prop_map(|(node_types, _num_nodes, edge_specs)| {
             let mut graph = Graph::new();
-            let node_ids: Vec<_> = node_types.into_iter().map(|nt| graph.add_node(nt)).collect();
+            let node_ids: Vec<_> = node_types
+                .into_iter()
+                .map(|nt| graph.add_node(nt))
+                .collect();
             for (from_idx, to_idx, from_port, to_port) in edge_specs {
                 let from_node = node_ids[from_idx];
                 let to_node = node_ids[to_idx];

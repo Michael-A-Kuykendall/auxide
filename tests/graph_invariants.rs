@@ -37,13 +37,15 @@ fn input_ports_connected_or_optional() {
 
     // Add the required edge
     let osc_node = graph.add_node(NodeType::SineOsc { freq: 440.0 });
-    graph.add_edge(Edge {
-        from_node: osc_node,
-        from_port: PortId(0),
-        to_node: gain_node,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(Edge {
+            from_node: osc_node,
+            from_port: PortId(0),
+            to_node: gain_node,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
     // Now should succeed
     assert!(auxide::plan::Plan::compile(&graph, 64).is_ok());
 
@@ -64,20 +66,24 @@ fn output_ports_fan_out_via_mix() {
     let node1 = graph.add_node(NodeType::SineOsc { freq: 440.0 });
     let node2 = graph.add_node(NodeType::Gain { gain: 1.0 });
     let node3 = graph.add_node(NodeType::Gain { gain: 1.0 });
-    graph.add_edge(Edge {
-        from_node: node1,
-        from_port: PortId(0),
-        to_node: node2,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
-    graph.add_edge(Edge {
-        from_node: node1,
-        from_port: PortId(0),
-        to_node: node3,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(Edge {
+            from_node: node1,
+            from_port: PortId(0),
+            to_node: node2,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
+    graph
+        .add_edge(Edge {
+            from_node: node1,
+            from_port: PortId(0),
+            to_node: node3,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
     // Should succeed, as fan-out is allowed.
     assert!(auxide::plan::Plan::compile(&graph, 64).is_ok());
 }
@@ -99,13 +105,15 @@ fn remove_node_invalidates_edges() {
     let mut graph = Graph::new();
     let node1 = graph.add_node(NodeType::Dummy);
     let node2 = graph.add_node(NodeType::Dummy);
-    graph.add_edge(Edge {
-        from_node: node1,
-        from_port: PortId(0),
-        to_node: node2,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(Edge {
+            from_node: node1,
+            from_port: PortId(0),
+            to_node: node2,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
     // Remove node1
     graph.remove_node(node1);
     // Edges to/from node1 should be removed
@@ -123,31 +131,37 @@ fn remove_middle_node_preserves_survivors() {
     let node1 = graph.add_node(NodeType::Dummy);
     let node2 = graph.add_node(NodeType::Dummy);
     // Add edge 0 -> 1
-    graph.add_edge(Edge {
-        from_node: node0,
-        from_port: PortId(0),
-        to_node: node1,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(Edge {
+            from_node: node0,
+            from_port: PortId(0),
+            to_node: node1,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
     // Add edge 1 -> 2
-    graph.add_edge(Edge {
-        from_node: node1,
-        from_port: PortId(0),
-        to_node: node2,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(Edge {
+            from_node: node1,
+            from_port: PortId(0),
+            to_node: node2,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
     // Remove middle node1
     graph.remove_node(node1);
     // Now add edge between survivors 0 -> 2
-    graph.add_edge(Edge {
-        from_node: node0,
-        from_port: PortId(0),
-        to_node: node2,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(Edge {
+            from_node: node0,
+            from_port: PortId(0),
+            to_node: node2,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
     // Compile plan without panic or misrouting
     let plan = Plan::compile(&graph, 64).unwrap();
     assert_eq!(plan.edges.len(), 1);
@@ -165,13 +179,15 @@ fn remove_node_stress_recompile() {
     }
     // Add some edges
     for i in 0..9 {
-        graph.add_edge(Edge {
-            from_node: nodes[i],
-            from_port: PortId(0),
-            to_node: nodes[i + 1],
-            to_port: PortId(0),
-            rate: Rate::Audio,
-        }).unwrap();
+        graph
+            .add_edge(Edge {
+                from_node: nodes[i],
+                from_port: PortId(0),
+                to_node: nodes[i + 1],
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
     }
     // Compile initial plan
     let mut plan = Plan::compile(&graph, 64).unwrap();
@@ -188,13 +204,15 @@ fn remove_node_stress_recompile() {
 
     // Add new nodes and edges
     let new_node = graph.add_node(NodeType::Dummy);
-    graph.add_edge(Edge {
-        from_node: nodes[1], // Assuming still exists
-        from_port: PortId(0),
-        to_node: new_node,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(Edge {
+            from_node: nodes[1], // Assuming still exists
+            from_port: PortId(0),
+            to_node: new_node,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
     // Recompile again
     plan = Plan::compile(&graph, 64).unwrap();
     // Should compile without issues

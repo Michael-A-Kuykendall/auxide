@@ -10,27 +10,33 @@ fn main() {
     let gain2 = graph.add_node(NodeType::Gain { gain: 0.5 });
     let sink = graph.add_node(NodeType::OutputSink);
 
-    graph.add_edge(auxide::graph::Edge {
-        from_node: osc,
-        from_port: PortId(0),
-        to_node: gain1,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
-    graph.add_edge(auxide::graph::Edge {
-        from_node: gain1,
-        from_port: PortId(0),
-        to_node: gain2,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
-    graph.add_edge(auxide::graph::Edge {
-        from_node: gain2,
-        from_port: PortId(0),
-        to_node: sink,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: osc,
+            from_port: PortId(0),
+            to_node: gain1,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: gain1,
+            from_port: PortId(0),
+            to_node: gain2,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: gain2,
+            from_port: PortId(0),
+            to_node: sink,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
 
     let plan = Plan::compile(&graph, 64).unwrap();
     let mut runtime = Runtime::new(plan, &graph, 44100.0);

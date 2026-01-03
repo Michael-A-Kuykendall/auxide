@@ -33,17 +33,28 @@ pub struct Runtime {
 impl Runtime {
     /// Create a new runtime from a plan and graph.
     pub fn new(plan: Plan, graph: &Graph, sample_rate: f32) -> Self {
-        let nodes: Vec<Option<NodeType>> = graph.nodes.iter().map(|n| n.as_ref().map(|nd| nd.node_type.clone())).collect();
-        let states: Vec<Option<NodeState>> = nodes.iter().map(|nt| nt.as_ref().map(|nt| match nt {
-            NodeType::SineOsc { .. } => NodeState::SineOsc { phase: 0.0 },
-            NodeType::Gain { .. } => NodeState::Gain,
-            NodeType::Mix => NodeState::Mix,
-            NodeType::OutputSink => NodeState::OutputSink,
-            NodeType::Dummy => NodeState::Dummy,
-        })).collect();
+        let nodes: Vec<Option<NodeType>> = graph
+            .nodes
+            .iter()
+            .map(|n| n.as_ref().map(|nd| nd.node_type.clone()))
+            .collect();
+        let states: Vec<Option<NodeState>> = nodes
+            .iter()
+            .map(|nt| {
+                nt.as_ref().map(|nt| match nt {
+                    NodeType::SineOsc { .. } => NodeState::SineOsc { phase: 0.0 },
+                    NodeType::Gain { .. } => NodeState::Gain,
+                    NodeType::Mix => NodeState::Mix,
+                    NodeType::OutputSink => NodeState::OutputSink,
+                    NodeType::Dummy => NodeState::Dummy,
+                })
+            })
+            .collect();
         let edge_buffers = vec![vec![0.0; plan.block_size]; plan.edges.len()];
         let temp_inputs = Vec::with_capacity(plan.max_inputs);
-        let temp_output_vecs = (0..plan.max_outputs).map(|_| vec![0.0; plan.block_size]).collect();
+        let temp_output_vecs = (0..plan.max_outputs)
+            .map(|_| vec![0.0; plan.block_size])
+            .collect();
         Self {
             plan,
             sample_rate,
@@ -63,7 +74,9 @@ impl Runtime {
         }
         // For each node in order
         for &node_id in &self.plan.order {
-            if let (Some(node_type), Some(node_state)) = (&self.nodes[node_id.0], &mut self.states[node_id.0]) {
+            if let (Some(node_type), Some(node_state)) =
+                (&self.nodes[node_id.0], &mut self.states[node_id.0])
+            {
                 // Gather inputs
                 self.temp_inputs.clear();
                 for &(edge_idx, _port) in &self.plan.node_inputs[node_id.0] {
@@ -145,7 +158,9 @@ pub fn render_offline(runtime: &mut Runtime, frames: usize) -> Vec<f32> {
     while offset < frames {
         let block_len = (frames - offset).min(block_size);
         if block_len == block_size {
-            runtime.process_block(&mut output[offset..offset + block_size]).unwrap();
+            runtime
+                .process_block(&mut output[offset..offset + block_size])
+                .unwrap();
         } else {
             // Pad the final partial block
             let mut temp_block = vec![0.0; block_size];
@@ -159,9 +174,8 @@ pub fn render_offline(runtime: &mut Runtime, frames: usize) -> Vec<f32> {
 
 /// Run process_block with panic containment.
 pub fn process_block_safe(runtime: &mut Runtime, out: &mut [f32]) {
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        runtime.process_block(out)
-    }));
+    let result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| runtime.process_block(out)));
     match result {
         Ok(Ok(())) => {} // Success
         Ok(Err(_)) | Err(_) => {
@@ -220,7 +234,10 @@ mod tests {
         let mut out = vec![0.0; 64];
         runtime.process_block(&mut out).unwrap();
         // SineOsc produces non-zero output, OutputSink copies to out
-        assert!(out.iter().any(|&x| x != 0.0), "Output should contain non-zero values from SineOsc");
+        assert!(
+            out.iter().any(|&x| x != 0.0),
+            "Output should contain non-zero values from SineOsc"
+        );
     }
 
     #[test]
@@ -243,13 +260,15 @@ mod tests {
         let mut graph = Graph::new();
         let _node1 = graph.add_node(NodeType::SineOsc { freq: 440.0 });
         let node2 = graph.add_node(NodeType::OutputSink);
-        graph.add_edge(crate::graph::Edge {
-            from_node: NodeId(0),
-            from_port: PortId(0),
-            to_node: node2,
-            to_port: PortId(0),
-            rate: Rate::Audio,
-        }).unwrap();
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: NodeId(0),
+                from_port: PortId(0),
+                to_node: node2,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
         let plan = Plan::compile(&graph, 64).unwrap();
         let mut runtime = Runtime::new(plan, &graph, 44100.0);
         let output = render_offline(&mut runtime, 64);
@@ -269,6 +288,9 @@ mod tests {
         let mut out = vec![0.0; 32]; // Wrong length
         let result = runtime.process_block(&mut out);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "output buffer must be exactly block_size long");
+        assert_eq!(
+            result.unwrap_err(),
+            "output buffer must be exactly block_size long"
+        );
     }
 }

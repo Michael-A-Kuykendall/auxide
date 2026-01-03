@@ -34,19 +34,26 @@ impl Plan {
         let order = topo_sort(graph)?;
 
         // Build edges
-        let edges: Vec<EdgeSpec> = graph.edges.iter().map(|e| EdgeSpec {
-            from_node: e.from_node,
-            from_port: e.from_port,
-            to_node: e.to_node,
-            to_port: e.to_port,
-            rate: e.rate.clone(),
-        }).collect();
+        let edges: Vec<EdgeSpec> = graph
+            .edges
+            .iter()
+            .map(|e| EdgeSpec {
+                from_node: e.from_node,
+                from_port: e.from_port,
+                to_node: e.to_node,
+                to_port: e.to_port,
+                rate: e.rate.clone(),
+            })
+            .collect();
 
         // Validate single-writer: each input port has at most one edge
         let mut input_ports = std::collections::HashSet::new();
         for edge in &edges {
             if !input_ports.insert((edge.to_node, edge.to_port)) {
-                return Err(PlanError::MultipleWritersToInput { node: edge.to_node, port: edge.to_port });
+                return Err(PlanError::MultipleWritersToInput {
+                    node: edge.to_node,
+                    port: edge.to_port,
+                });
             }
         }
 
@@ -64,7 +71,11 @@ impl Plan {
         // Validate required inputs
         for node_data in graph.nodes.iter().flatten() {
             let required = node_data.node_type.required_inputs();
-            let connected = graph.edges.iter().filter(|e| e.to_node == node_data.id).count();
+            let connected = graph
+                .edges
+                .iter()
+                .filter(|e| e.to_node == node_data.id)
+                .count();
             if connected < required {
                 return Err(PlanError::RequiredInputMissing { node: node_data.id });
             }
