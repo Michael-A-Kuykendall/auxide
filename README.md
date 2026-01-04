@@ -233,6 +233,62 @@ Quickly test ideas without RT constraints.
 ### Integration
 Pair with `cpal` for playback, `hound` for file I/O.
 
+**Recommended**: Use [auxide-io](https://github.com/Michael-A-Kuykendall/auxide-io) for turnkey audio output with RT-safe streaming.
+
+## Audio I/O with Auxide IO
+
+Auxide handles the DSP graph—**Auxide IO** handles the hardware. For real-time audio playback, use [auxide-io](https://github.com/Michael-A-Kuykendall/auxide-io), the official I/O companion crate.
+
+**Features:**
+- **CPAL Integration**: Cross-platform audio output
+- **Buffer Adaptation**: Handles size mismatches between Auxide blocks and host buffers
+- **Channel Routing**: Mono-to-stereo conversion
+- **RT-Safe**: Atomic state management, no allocations in callbacks
+- **Error Recovery**: Graceful failure with silence
+
+**Quick Start with Audio Output:**
+```rust
+use auxide::graph::{Graph, NodeType, PortId, Rate};
+use auxide::plan::Plan;
+use auxide::rt::Runtime;
+use auxide_io::StreamController;
+
+fn main() -> anyhow::Result<()> {
+    // Build sine wave graph (same as before)
+    let mut graph = Graph::new();
+    let osc = graph.add_node(NodeType::SineOsc { freq: 440.0 });
+    let sink = graph.add_node(NodeType::OutputSink);
+    graph.add_edge(auxide::graph::Edge {
+        from_node: osc,
+        from_port: PortId(0),
+        to_node: sink,
+        to_port: PortId(0),
+        rate: Rate::Audio,
+    })?;
+
+    let plan = Plan::compile(&graph, 512)?;
+    let runtime = Runtime::new(plan, &graph, 44100.0);
+
+    // Stream to speakers!
+    let controller = StreamController::play(runtime)?;
+    controller.start()?;
+    // Audio plays... press Enter to stop
+    std::io::stdin().read_line(&mut String::new())?;
+    controller.stop();
+
+    Ok(())
+}
+```
+
+Add to `Cargo.toml`:
+```toml
+[dependencies]
+auxide = "0.1"
+auxide-io = "0.1"
+```
+
+**🔗 [Get Auxide IO](https://github.com/Michael-A-Kuykendall/auxide-io) | [Crate](https://crates.io/crates/auxide-io) | [Docs](https://docs.rs/auxide-io)**
+
 ## Key Features
 
 - **RT-Safe**: No allocs/locks in hot paths.

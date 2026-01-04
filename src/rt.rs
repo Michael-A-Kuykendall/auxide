@@ -66,6 +66,11 @@ impl Runtime {
         }
     }
 
+    /// Get the sample rate.
+    pub fn sample_rate(&self) -> f32 {
+        self.sample_rate
+    }
+
     /// Process a block of frames, writing to out (mono).
     pub fn process_block(&mut self, out: &mut [f32]) -> Result<(), &'static str> {
         let block_size = self.plan.block_size;
