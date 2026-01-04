@@ -38,6 +38,10 @@ Auxide is **engineer-friendly**: Minimal API, zero-cost abstractions, RT-safe by
 | Minimal API     | ✅    | ❌            | ✅   | ✅  |
 | Rust Native     | ✅    | ❌            | ✅   | ✅  |
 
+## Governance
+
+Auxide is open source but not open contribution. The project is maintained by @Michael-A-Kuykendall; unsolicited PRs are closed by default. See CONTRIBUTING.md and GOVERNANCE.md for the collaboration policy.
+
 ## Architecture
 
 Auxide's three-phase pipeline ensures reliability:

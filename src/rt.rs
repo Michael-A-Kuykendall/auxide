@@ -164,13 +164,11 @@ pub fn render_offline(runtime: &mut Runtime, frames: usize) -> Result<Vec<f32>, 
     while offset < frames {
         let block_len = (frames - offset).min(block_size);
         if block_len == block_size {
-            runtime
-                .process_block(&mut output[offset..offset + block_size])
-                .unwrap();
+            runtime.process_block(&mut output[offset..offset + block_size])?;
         } else {
             // Pad the final partial block
             let mut temp_block = vec![0.0; block_size];
-            runtime.process_block(&mut temp_block).unwrap();
+            runtime.process_block(&mut temp_block)?;
             output[offset..frames].copy_from_slice(&temp_block[0..block_len]);
         }
         offset += block_len;

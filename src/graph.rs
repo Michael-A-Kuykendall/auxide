@@ -203,8 +203,8 @@ impl Graph {
         if self.would_create_cycle(&edge) {
             assert_invariant(
                 GRAPH_REJECTS_INVALID,
-                true,
-                "Graph rejects cycles",
+                self.would_create_cycle(&edge),
+                "Cycle detected, rejecting",
                 Some("add_edge"),
             );
             return Err(GraphError::CycleDetected);

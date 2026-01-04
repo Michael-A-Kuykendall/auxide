@@ -63,6 +63,11 @@ impl GraphBuilder {
     pub fn build(self) -> Result<Graph, DslError> {
         Ok(self.graph)
     }
+
+    /// Get a node by name.
+    pub fn get_node_by_name(&self, name: &str) -> Option<NodeId> {
+        self.node_names.get(name).copied()
+    }
 }
 
 impl Default for GraphBuilder {

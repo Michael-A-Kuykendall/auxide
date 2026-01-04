@@ -1,0 +1,16 @@
+# Auxide code review ownership
+# All changes require maintainer approval to preserve RT safety and determinism.
+
+# Global ownership
+*   @Michael-A-Kuykendall
+
+# Critical surfaces
+/Cargo.toml          @Michael-A-Kuykendall
+/src/lib.rs          @Michael-A-Kuykendall
+/src/rt.rs           @Michael-A-Kuykendall
+/src/graph.rs        @Michael-A-Kuykendall
+/src/plan.rs         @Michael-A-Kuykendall
+/docs/               @Michael-A-Kuykendall
+/CONTRIBUTING.md     @Michael-A-Kuykendall
+/CODEOWNERS          @Michael-A-Kuykendall
+/GOVERNANCE.md       @Michael-A-Kuykendall
