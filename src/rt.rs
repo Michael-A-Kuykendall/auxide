@@ -2,8 +2,9 @@
 
 // IMPORTANT: Do not call assert_invariant or any PPT logging in RT paths to avoid locks/allocs.
 
-#![forbid(unsafe_code)]
-// #![deny(missing_docs)]
+// Allow unsafe code for RT safety: lifetime extension to avoid Vec allocation in process_block
+#![allow(unsafe_code)]
+#![deny(missing_docs)]
 
 use crate::graph::{Graph, NodeType};
 use crate::plan::Plan;
@@ -30,6 +31,7 @@ pub struct Runtime {
     edge_buffers: Vec<Vec<f32>>,
     temp_inputs: Vec<usize>,
     temp_output_vecs: Vec<Vec<f32>>,
+    temp_input_slices: Vec<&'static [f32]>,
 }
 
 impl Runtime {
@@ -60,6 +62,7 @@ impl Runtime {
         let temp_output_vecs = (0..plan.max_outputs)
             .map(|_| vec![0.0; plan.block_size])
             .collect();
+        let temp_input_slices = Vec::with_capacity(plan.max_inputs);
         Self {
             plan,
             sample_rate,
@@ -68,6 +71,7 @@ impl Runtime {
             edge_buffers,
             temp_inputs,
             temp_output_vecs,
+            temp_input_slices,
         }
     }
 
@@ -104,6 +108,7 @@ impl Runtime {
                         for (i, &edge_idx) in self.temp_inputs.iter().enumerate() {
                             let input = &self.edge_buffers[edge_idx][..];
                             if let Some(output) = outputs.get_mut(i) {
+                                debug_assert_eq!(input.len(), output.len(), "Buffer lengths must match for copy_from_slice");
                                 output.copy_from_slice(input);
                             }
                         }
@@ -148,9 +153,14 @@ impl Runtime {
                         }
                     }
                     NodeType::External { def } => {
-                        let input_slices: Vec<&[f32]> = self.temp_inputs.iter().map(|&idx| &self.edge_buffers[idx][..]).collect();
+                        self.temp_input_slices.clear();
+                        for &idx in &self.temp_inputs {
+                            self.temp_input_slices.push(unsafe {
+                                std::mem::transmute::<&[f32], &'static [f32]>(&self.edge_buffers[idx][..])
+                            });
+                        }
                         if let NodeState::External { state } = node_state {
-                            def.process_block(state.as_mut(), &input_slices, outputs, self.sample_rate);
+                            def.process_block(state.as_mut(), &self.temp_input_slices, outputs, self.sample_rate);
                         }
                     }
                 }

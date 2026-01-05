@@ -1,7 +1,7 @@
 //! Graph module for Auxide: correct-by-construction signal graphs.
 
 #![forbid(unsafe_code)]
-// #![deny(missing_docs)]
+#![deny(missing_docs)]
 
 use crate::invariant_ppt::{assert_invariant, GRAPH_REJECTS_INVALID};
 use crate::node::{NodeDef, NodeDefDyn};

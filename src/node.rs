@@ -65,7 +65,7 @@ impl<T: NodeDef> NodeDefDyn for T {
             <T as NodeDef>::process_block(self, typed, inputs, outputs, sample_rate);
         } else {
             // Fail-closed: silence outputs on type mismatch.
-            debug_assert!(false, "State type mismatch in External node process_block");
+            debug_assert!(false, "State type mismatch in External node process_block - this indicates a wiring bug");
             for out in outputs.iter_mut() {
                 out.fill(0.0);
             }

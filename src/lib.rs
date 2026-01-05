@@ -16,7 +16,7 @@
 //!
 //! ## Determinism
 //!
-//! Given the same graph, plan, and inputs, outputs are identical (modulo floating-point precision).
+//! Given the same graph, plan, and inputs, outputs are identical (modulo floating-point precision and any non-deterministic operations like random number generation).
 //!
 //! ## Invariants
 //!
@@ -49,7 +49,7 @@
 //! ```
 
 #![doc(
-    html_logo_url = "https://raw.githubusercontent.com/Michael-A-Kuykendall/auxide/master/assets/auxide-logo.png"
+    html_logo_url = "https://raw.githubusercontent.com/Michael-A-Kuykendall/auxide/main/assets/auxide-logo.png"
 )]
 
 pub mod dsl;
