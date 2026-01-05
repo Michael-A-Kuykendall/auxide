@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/Michael-A-Kuykendall/auxide/master/assets/auxide-logo.png" alt="Auxide Logo" width="400">
+<img src="https://raw.githubusercontent.com/Michael-A-Kuykendall/auxide/main/assets/auxide-logo.png" alt="Auxide Logo" width="400">
 
 [![Crates.io](https://img.shields.io/crates/v/auxide.svg)](https://crates.io/crates/auxide)
 [![Documentation](https://docs.rs/auxide/badge.svg)](https://docs.rs/auxide)
