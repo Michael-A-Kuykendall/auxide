@@ -63,6 +63,11 @@ graph LR
 - **Rate compatibility**: Audio/Control rates match.
 - **Determinism**: Same inputs → same outputs.
 
+### Extending with External Nodes (0.2)
+- Implement the `NodeDef` trait in your crate, then register via `Graph::add_external_node(...)`.
+- Ports are declared as static slices; no allocations or locks are allowed in `process_block`.
+- The core `NodeType` variants remain unchanged; the hook is additive and RT-safe.
+
 Violations caught at compile-time or runtime with clear errors.
 
 ## Quick Start

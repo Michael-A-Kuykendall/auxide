@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0] - 2026-01-04
+- Added trait-based external node hook (`NodeType::External`) with object-safe `NodeDef` adapter.
+- Port metadata now uses static slices to avoid allocations in hot paths.
+- Runtime preallocates external node state and routes without per-block allocations.
+- Backward compatibility preserved for existing nodes and graphs.
+
 ## [0.1.1] - 2026-01-03
 - **Bug fixes**: Improved error handling in `render_offline` to propagate `process_block` errors instead of panicking.
 - **API enhancement**: Added `get_node_by_name` getter to `GraphBuilder` for accessing named nodes.

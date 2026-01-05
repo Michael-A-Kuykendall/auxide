@@ -7,15 +7,17 @@
 
 use crate::graph::{Graph, NodeType};
 use crate::plan::Plan;
+use std::any::Any;
 
 /// Node states for mutable data.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum NodeState {
     SineOsc { phase: f32 },
     Gain,
     Mix,
     OutputSink,
     Dummy,
+    External { state: Box<dyn Any + Send> },
 }
 
 /// The runtime engine.
@@ -47,6 +49,9 @@ impl Runtime {
                     NodeType::Mix => NodeState::Mix,
                     NodeType::OutputSink => NodeState::OutputSink,
                     NodeType::Dummy => NodeState::Dummy,
+                    NodeType::External { def } => NodeState::External {
+                        state: def.init_state(sample_rate, plan.block_size),
+                    },
                 })
             })
             .collect();
@@ -142,6 +147,12 @@ impl Runtime {
                             out.copy_from_slice(input);
                         }
                     }
+                    NodeType::External { def } => {
+                        let input_slices: Vec<&[f32]> = self.temp_inputs.iter().map(|&idx| &self.edge_buffers[idx][..]).collect();
+                        if let NodeState::External { state } = node_state {
+                            def.process_block(state.as_mut(), &input_slices, outputs, self.sample_rate);
+                        }
+                    }
                 }
                 // Store outputs in edge buffers
                 for (i, &(edge_idx, _)) in self.plan.node_outputs[node_id.0].iter().enumerate() {
@@ -198,7 +209,57 @@ pub fn process_block_safe(runtime: &mut Runtime, out: &mut [f32]) {
 mod tests {
     use super::*;
     use crate::graph::{Graph, NodeType, PortId, Rate};
+    use crate::node::NodeDef;
     use crate::plan::Plan;
+
+    static PORTS_MONO_IN: &[crate::graph::Port] = &[crate::graph::Port {
+        id: PortId(0),
+        rate: Rate::Audio,
+    }];
+    static PORTS_MONO_OUT: &[crate::graph::Port] = &[crate::graph::Port {
+        id: PortId(0),
+        rate: Rate::Audio,
+    }];
+
+    #[derive(Clone)]
+    struct TestExternalNode;
+
+    impl NodeDef for TestExternalNode {
+        type State = f32;
+
+        fn input_ports(&self) -> &'static [crate::graph::Port] {
+            PORTS_MONO_IN
+        }
+
+        fn output_ports(&self) -> &'static [crate::graph::Port] {
+            PORTS_MONO_OUT
+        }
+
+        fn required_inputs(&self) -> usize {
+            1
+        }
+
+        fn init_state(&self, _sample_rate: f32, _block_size: usize) -> Self::State {
+            0.0
+        }
+
+        fn process_block(
+            &self,
+            state: &mut Self::State,
+            inputs: &[&[f32]],
+            outputs: &mut [Vec<f32>],
+            _sample_rate: f32,
+        ) {
+            // Simple passthrough with gain stored in state; state not mutated here.
+            if let Some(out) = outputs.get_mut(0) {
+                if let Some(input) = inputs.get(0) {
+                    for (o, &i) in out.iter_mut().zip(*input) {
+                        *o = i + *state;
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn rt_no_alloc() {
@@ -247,6 +308,40 @@ mod tests {
             out.iter().any(|&x| x != 0.0),
             "Output should contain non-zero values from SineOsc"
         );
+    }
+
+    #[test]
+    fn rt_external_node_runs() {
+        let mut graph = Graph::new();
+        let input = graph.add_node(NodeType::SineOsc { freq: 440.0 });
+        let ext = graph.add_external_node(TestExternalNode);
+        let sink = graph.add_node(NodeType::OutputSink);
+
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: input,
+                from_port: PortId(0),
+                to_node: ext,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: ext,
+                from_port: PortId(0),
+                to_node: sink,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+
+        let plan = Plan::compile(&graph, 64).unwrap();
+        let mut runtime = Runtime::new(plan, &graph, 44100.0);
+        let mut out = vec![0.0; 64];
+        runtime.process_block(&mut out).unwrap();
+        // External node passes through osc into sink
+        assert!(out.iter().any(|&x| x != 0.0));
     }
 
     #[test]

@@ -3,6 +3,10 @@
 #![forbid(unsafe_code)]
 // #![deny(missing_docs)]
 
+use crate::invariant_ppt::{assert_invariant, GRAPH_REJECTS_INVALID};
+use crate::node::{NodeDef, NodeDefDyn};
+use std::sync::Arc;
+
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Rate {
@@ -26,6 +30,26 @@ pub struct Port {
     pub rate: Rate,
 }
 
+const PORTS_NONE: &[Port] = &[];
+const PORTS_MONO_OUT: &[Port] = &[Port {
+    id: PortId(0),
+    rate: Rate::Audio,
+}];
+const PORTS_MONO_IN: &[Port] = &[Port {
+    id: PortId(0),
+    rate: Rate::Audio,
+}];
+const PORTS_DUAL_IN_MONO_OUT: &[Port] = &[
+    Port {
+        id: PortId(0),
+        rate: Rate::Audio,
+    },
+    Port {
+        id: PortId(1),
+        rate: Rate::Audio,
+    },
+];
+
 /// An edge connecting two ports.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Edge {
@@ -40,77 +64,55 @@ pub struct Edge {
 #[derive(Debug, Clone)]
 pub struct NodeData {
     pub id: NodeId,
-    pub inputs: Vec<Port>,
-    pub outputs: Vec<Port>,
+    pub inputs: &'static [Port],
+    pub outputs: &'static [Port],
     pub node_type: NodeType,
 }
 
-use crate::invariant_ppt::{assert_invariant, GRAPH_REJECTS_INVALID};
-
 #[non_exhaustive]
-#[derive(Debug, Clone)]
-/// Types of DSP nodes available in the graph.
+#[derive(Clone)]
 pub enum NodeType {
-    /// Sine wave oscillator.
     SineOsc { freq: f32 },
-    /// Gain/multiplication node.
     Gain { gain: f32 },
-    /// Mixer node (sums two inputs).
     Mix,
-    /// Output sink (terminates the graph).
     OutputSink,
-    /// Dummy node for testing.
-    Dummy, // For testing
+    Dummy,
+    External { def: Arc<dyn NodeDefDyn> },
+}
+
+impl std::fmt::Debug for NodeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NodeType::SineOsc { .. } => write!(f, "SineOsc"),
+            NodeType::Gain { .. } => write!(f, "Gain"),
+            NodeType::Mix => write!(f, "Mix"),
+            NodeType::OutputSink => write!(f, "OutputSink"),
+            NodeType::Dummy => write!(f, "Dummy"),
+            NodeType::External { .. } => write!(f, "External"),
+        }
+    }
 }
 
 impl NodeType {
-    pub fn input_ports(&self) -> Vec<Port> {
+    pub fn input_ports(&self) -> &'static [Port] {
         match self {
-            NodeType::Dummy => vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::SineOsc { .. } => vec![],
-            NodeType::Gain { .. } => vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Mix => vec![
-                Port {
-                    id: PortId(0),
-                    rate: Rate::Audio,
-                },
-                Port {
-                    id: PortId(1),
-                    rate: Rate::Audio,
-                },
-            ],
-            NodeType::OutputSink => vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
+            NodeType::Dummy => PORTS_MONO_IN,
+            NodeType::SineOsc { .. } => PORTS_NONE,
+            NodeType::Gain { .. } => PORTS_MONO_IN,
+            NodeType::Mix => PORTS_DUAL_IN_MONO_OUT,
+            NodeType::OutputSink => PORTS_MONO_IN,
+            NodeType::External { def } => def.input_ports(),
         }
     }
 
-    pub fn output_ports(&self) -> Vec<Port> {
+    pub fn output_ports(&self) -> &'static [Port] {
         match self {
-            NodeType::Dummy => vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::SineOsc { .. } => vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Gain { .. } => vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::Mix => vec![Port {
-                id: PortId(0),
-                rate: Rate::Audio,
-            }],
-            NodeType::OutputSink => vec![],
+            NodeType::Dummy => PORTS_MONO_OUT,
+            NodeType::SineOsc { .. } => PORTS_MONO_OUT,
+            NodeType::Gain { .. } => PORTS_MONO_OUT,
+            NodeType::Mix => PORTS_MONO_OUT,
+            NodeType::OutputSink => PORTS_NONE,
+            NodeType::External { def } => def.output_ports(),
         }
     }
 
@@ -118,11 +120,11 @@ impl NodeType {
         match self {
             NodeType::Gain { .. } => 1,
             NodeType::OutputSink => 1,
+            NodeType::External { def } => def.required_inputs(),
             _ => 0,
         }
     }
 }
-
 /// The signal graph: a DAG of nodes and edges.
 #[derive(Debug, Clone)]
 pub struct Graph {
@@ -161,6 +163,13 @@ impl Graph {
             node_type,
         }));
         id
+    }
+
+    /// Add an external node defined via NodeDef.
+    pub fn add_external_node<T: NodeDef>(&mut self, def: T) -> NodeId {
+        self.add_node(NodeType::External {
+            def: Arc::new(def),
+        })
     }
 
     /// Add an edge, validating rates match and no cycles.
@@ -242,12 +251,12 @@ impl Graph {
         }
         let node = &self.nodes[node_id.0];
         let node = node.as_ref().ok_or(GraphError::InvalidNode)?;
-        for port in &node.inputs {
+        for port in node.inputs {
             if port.id == port_id {
                 return Ok(port.rate.clone());
             }
         }
-        for port in &node.outputs {
+        for port in node.outputs {
             if port.id == port_id {
                 return Ok(port.rate.clone());
             }

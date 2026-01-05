@@ -20,6 +20,11 @@ Auxide is a real-time-safe audio graph kernel designed for building deterministi
 - Processes nodes in topological order, routing data via preallocated buffers.
 - RT-safe: no allocations or locks in the hot path.
 
+### Extension via Traits (0.2)
+- External nodes implement `NodeDef` in downstream crates.
+- Registered through `Graph::add_external_node`, scheduled like built-ins.
+- All buffers and state are preallocated at runtime creation; no alloc/lock in `process_block`.
+
 ## Data Flow
 1. Build/modify the graph (may allocate).
 2. Compile to a plan (may allocate, validates invariants).
