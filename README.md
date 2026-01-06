@@ -62,12 +62,12 @@ Auxide uses a pull-based graph execution model where each node processes audio o
 
 ## Ecosystem
 
-Auxide is designed as a modular ecosystem:
-
-- **auxide**: Core kernel (this crate)
-- **auxide-dsp**: DSP nodes and utilities
-- **auxide-io**: Audio I/O layer
-- **auxide-midi**: MIDI integration
+| Crate | Description | Version |
+|-------|-------------|---------|
+| **auxide** | Real-time-safe audio graph kernel | 0.3.0 |
+| [auxide-dsp](https://github.com/Michael-A-Kuykendall/auxide-dsp) | DSP nodes library | 0.2.0 |
+| [auxide-io](https://github.com/Michael-A-Kuykendall/auxide-io) | Audio I/O layer | 0.2.0 |
+| [auxide-midi](https://github.com/Michael-A-Kuykendall/auxide-midi) | MIDI integration | 0.2.0 |
 
 ## Community & Support
 
@@ -91,10 +91,3 @@ MIT License - forever and always.
 **Promise**: This will never become a paid product  
 **Mission**: Making real-time audio DSP simple and reliable
 
-## Auxide Ecosystem
-| Crate | Description | Version |
-|-------|-------------|---------|
-| **[auxide](https://github.com/Michael-A-Kuykendall/auxide)** | Real-time-safe audio graph kernel | 0.3.0 |
-| [auxide-dsp](https://github.com/Michael-A-Kuykendall/auxide-dsp) | DSP nodes library | 0.2.0 |
-| [auxide-io](https://github.com/Michael-A-Kuykendall/auxide-io) | Audio I/O layer | 0.2.0 |
-| [auxide-midi](https://github.com/Michael-A-Kuykendall/auxide-midi) | MIDI integration | 0.2.0 |
