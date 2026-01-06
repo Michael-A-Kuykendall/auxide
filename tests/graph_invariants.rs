@@ -57,12 +57,9 @@ fn input_ports_connected_or_optional() {
 }
 
 #[test]
-fn output_ports_fan_out_via_mix() {
-    // Output ports may fan out only via explicit mix semantics
-    // Meaning, an output can connect to multiple inputs, but only if it's a mix or something?
-    // The plan says "Output ports may fan out only via explicit mix semantics"
-    // Currently, graph allows multiple edges from same output.
-    // Test that it's allowed.
+fn output_ports_fan_out_allowed() {
+    // Fan-out: one output port can connect to multiple input ports.
+    // This is valid and supported - the output buffer is simply read by multiple downstream nodes.
     let mut graph = Graph::new();
     let node1 = graph.add_node(NodeType::SineOsc { freq: 440.0 });
     let node2 = graph.add_node(NodeType::Gain { gain: 1.0 });
@@ -85,7 +82,7 @@ fn output_ports_fan_out_via_mix() {
             rate: Rate::Audio,
         })
         .unwrap();
-    // Should succeed, as fan-out is allowed.
+    // Fan-out compiles and runs correctly
     assert!(auxide::plan::Plan::compile(&graph, 64).is_ok());
 }
 

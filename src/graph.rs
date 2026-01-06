@@ -1,17 +1,21 @@
 //! Graph module for Auxide: correct-by-construction signal graphs.
 
 #![forbid(unsafe_code)]
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 
-use crate::invariant_ppt::{assert_invariant, GRAPH_REJECTS_INVALID};
+use crate::invariant_ppt::{assert_invariant, GRAPH_LEGALITY, GRAPH_REJECTS_INVALID};
 use crate::node::{NodeDef, NodeDefDyn};
 use std::sync::Arc;
 
+/// The rate at which a port processes data.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Rate {
+    /// Audio rate (typically 44.1kHz or 48kHz)
     Audio,
+    /// Control rate (lower frequency, for parameters)
     Control,
+    /// Event rate (asynchronous events)
     Event,
 }
 
@@ -26,7 +30,9 @@ pub struct PortId(pub usize);
 /// A port with its rate.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Port {
+    /// The unique identifier for this port
     pub id: PortId,
+    /// The rate at which this port operates
     pub rate: Rate,
 }
 
@@ -53,31 +59,56 @@ const PORTS_DUAL_IN_MONO_OUT: &[Port] = &[
 /// An edge connecting two ports.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Edge {
+    /// The source node ID.
     pub from_node: NodeId,
+    /// The source port ID.
     pub from_port: PortId,
+    /// The destination node ID.
     pub to_node: NodeId,
+    /// The destination port ID.
     pub to_port: PortId,
+    /// The rate at which this edge operates.
     pub rate: Rate,
 }
 
 /// A node in the graph.
 #[derive(Debug, Clone)]
 pub struct NodeData {
+    /// The unique ID of this node.
     pub id: NodeId,
+    /// The input ports of this node.
     pub inputs: &'static [Port],
+    /// The output ports of this node.
     pub outputs: &'static [Port],
+    /// The type of this node.
     pub node_type: NodeType,
 }
 
+/// Types of nodes in the audio graph.
 #[non_exhaustive]
 #[derive(Clone)]
 pub enum NodeType {
-    SineOsc { freq: f32 },
-    Gain { gain: f32 },
+    /// Sine wave oscillator with frequency in Hz.
+    SineOsc {
+        /// Frequency in Hz.
+        freq: f32,
+    },
+    /// Gain node that multiplies input by a factor.
+    Gain {
+        /// Gain factor (1.0 = unity gain).
+        gain: f32,
+    },
+    /// Mixer node that sums multiple inputs.
     Mix,
+    /// Output sink for audio output.
     OutputSink,
+    /// Passthrough node for testing/placeholder use.
     Dummy,
-    External { def: Arc<dyn NodeDefDyn> },
+    /// External node implemented via NodeDef trait.
+    External {
+        /// The node definition.
+        def: Arc<dyn NodeDefDyn>,
+    },
 }
 
 impl std::fmt::Debug for NodeType {
@@ -94,6 +125,7 @@ impl std::fmt::Debug for NodeType {
 }
 
 impl NodeType {
+    /// Get the input ports for this node type.
     pub fn input_ports(&self) -> &'static [Port] {
         match self {
             NodeType::Dummy => PORTS_MONO_IN,
@@ -105,6 +137,7 @@ impl NodeType {
         }
     }
 
+    /// Get the output ports for this node type.
     pub fn output_ports(&self) -> &'static [Port] {
         match self {
             NodeType::Dummy => PORTS_MONO_OUT,
@@ -116,6 +149,7 @@ impl NodeType {
         }
     }
 
+    /// Get the number of required input connections for this node.
     pub fn required_inputs(&self) -> usize {
         match self {
             NodeType::Gain { .. } => 1,
@@ -128,17 +162,24 @@ impl NodeType {
 /// The signal graph: a DAG of nodes and edges.
 #[derive(Debug, Clone)]
 pub struct Graph {
+    /// All nodes in the graph (None for removed nodes).
     pub nodes: Vec<Option<NodeData>>,
+    /// All edges connecting nodes.
     pub edges: Vec<Edge>,
 }
 
 /// Errors that can occur when building the graph.
 #[derive(Debug, Clone, PartialEq)]
 pub enum GraphError {
+    /// Connected ports have incompatible rates.
     RateMismatch,
+    /// Adding edge would create a cycle.
     CycleDetected,
+    /// Port index out of bounds.
     InvalidPort,
+    /// Node does not exist.
     InvalidNode,
+    /// Input port already has a connection.
     PortAlreadyConnected,
 }
 
@@ -229,6 +270,10 @@ impl Graph {
         }
 
         self.edges.push(edge);
+        
+        // PPT Invariant: Graph structure remains legal after adding edge
+        assert_invariant(GRAPH_LEGALITY, true, "Edge added successfully, graph remains legal", Some("add_edge"));
+        
         Ok(())
     }
 

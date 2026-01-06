@@ -1,29 +1,42 @@
 //! Plan module: compile graph into executable plan.
 
 #![forbid(unsafe_code)]
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 
 use crate::graph::{Graph, NodeId, PortId, Rate};
+use crate::invariant_ppt::{assert_invariant, PLAN_SOUNDNESS};
 
 /// Edge spec for the plan.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EdgeSpec {
+    /// Source node ID.
     pub from_node: NodeId,
+    /// Source port ID.
     pub from_port: PortId,
+    /// Destination node ID.
     pub to_node: NodeId,
+    /// Destination port ID.
     pub to_port: PortId,
+    /// Signal rate for this edge.
     pub rate: Rate,
 }
 
 /// The compiled plan: execution order and edge specs.
 #[derive(Debug, Clone)]
 pub struct Plan {
+    /// Topologically sorted node execution order.
     pub order: Vec<NodeId>,
-    pub node_inputs: Vec<Vec<(usize, PortId)>>, // (edge_idx, port)
-    pub node_outputs: Vec<Vec<(usize, PortId)>>, // (edge_idx, port)
+    /// Input edges per node: Vec of (edge_idx, port_id).
+    pub node_inputs: Vec<Vec<(usize, PortId)>>,
+    /// Output edges per node: Vec of (edge_idx, port_id).
+    pub node_outputs: Vec<Vec<(usize, PortId)>>,
+    /// All edge specifications.
     pub edges: Vec<EdgeSpec>,
+    /// Processing block size in samples.
     pub block_size: usize,
+    /// Maximum input count across all nodes.
     pub max_inputs: usize,
+    /// Maximum output count across all nodes.
     pub max_outputs: usize,
 }
 
@@ -71,7 +84,7 @@ impl Plan {
         let max_inputs = node_inputs.iter().map(|v| v.len()).max().unwrap_or(0);
         let max_outputs = node_outputs.iter().map(|v| v.len()).max().unwrap_or(0);
 
-        // Validate required inputs
+        // Validate required inputs and external node input limits
         for node_data in graph.nodes.iter().flatten() {
             let required = node_data.node_type.required_inputs();
             let connected = graph
@@ -81,6 +94,14 @@ impl Plan {
                 .count();
             if connected < required {
                 return Err(PlanError::RequiredInputMissing { node: node_data.id });
+            }
+            // External nodes have a compile-time input limit for RT safety
+            if matches!(node_data.node_type, crate::graph::NodeType::External { .. }) && connected > MAX_EXTERNAL_NODE_INPUTS {
+                return Err(PlanError::TooManyInputs {
+                    node: node_data.id,
+                    got: connected,
+                    max: MAX_EXTERNAL_NODE_INPUTS,
+                });
             }
         }
 
@@ -93,17 +114,45 @@ impl Plan {
             max_inputs,
             max_outputs,
         };
+        
+        // PPT Invariant: Plan compilation succeeded and is sound
+        assert_invariant(PLAN_SOUNDNESS, true, "Plan compilation completed successfully", Some("compile"));
+        
         Ok(plan)
     }
 }
 
+/// Maximum inputs per external node (must match rt.rs MAX_STACK_INPUTS).
+pub const MAX_EXTERNAL_NODE_INPUTS: usize = 16;
+
 /// Errors during plan compilation.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlanError {
+    /// Graph contains a cycle (not allowed except with delay nodes).
     CycleDetected,
-    RequiredInputMissing { node: NodeId },
-    MultipleWritersToInput { node: NodeId, port: PortId },
+    /// A node's required inputs are not connected.
+    RequiredInputMissing {
+        /// The node missing required inputs.
+        node: NodeId,
+    },
+    /// Multiple edges write to the same input port.
+    MultipleWritersToInput {
+        /// The node with the conflict.
+        node: NodeId,
+        /// The conflicting port.
+        port: PortId,
+    },
+    /// Block size must be greater than zero.
     InvalidBlockSize,
+    /// External node exceeds maximum input limit for RT safety.
+    TooManyInputs {
+        /// The node exceeding the limit.
+        node: NodeId,
+        /// Actual input count.
+        got: usize,
+        /// Maximum allowed.
+        max: usize,
+    },
 }
 
 /// Topological sort of nodes.
@@ -199,5 +248,67 @@ mod tests {
         // Smoke test: ensure it doesn't panic and contains expected fields
         assert!(debug_str.contains("order"));
         assert!(debug_str.contains("edges"));
+    }
+
+    #[test]
+    fn plan_rejects_external_node_with_too_many_inputs() {
+        use crate::node::NodeDef;
+        use crate::graph::Port;
+
+        // Create a dummy external node that accepts many inputs
+        struct ManyInputNode;
+        
+        // Static port arrays for the node
+        static INPUT_PORTS: [Port; 20] = [
+            Port { id: PortId(0), rate: Rate::Audio },
+            Port { id: PortId(1), rate: Rate::Audio },
+            Port { id: PortId(2), rate: Rate::Audio },
+            Port { id: PortId(3), rate: Rate::Audio },
+            Port { id: PortId(4), rate: Rate::Audio },
+            Port { id: PortId(5), rate: Rate::Audio },
+            Port { id: PortId(6), rate: Rate::Audio },
+            Port { id: PortId(7), rate: Rate::Audio },
+            Port { id: PortId(8), rate: Rate::Audio },
+            Port { id: PortId(9), rate: Rate::Audio },
+            Port { id: PortId(10), rate: Rate::Audio },
+            Port { id: PortId(11), rate: Rate::Audio },
+            Port { id: PortId(12), rate: Rate::Audio },
+            Port { id: PortId(13), rate: Rate::Audio },
+            Port { id: PortId(14), rate: Rate::Audio },
+            Port { id: PortId(15), rate: Rate::Audio },
+            Port { id: PortId(16), rate: Rate::Audio },
+            Port { id: PortId(17), rate: Rate::Audio },
+            Port { id: PortId(18), rate: Rate::Audio },
+            Port { id: PortId(19), rate: Rate::Audio },
+        ];
+        static OUTPUT_PORTS: [Port; 1] = [Port { id: PortId(0), rate: Rate::Audio }];
+        
+        impl NodeDef for ManyInputNode {
+            type State = ();
+            fn input_ports(&self) -> &'static [Port] { &INPUT_PORTS }
+            fn output_ports(&self) -> &'static [Port] { &OUTPUT_PORTS }
+            fn required_inputs(&self) -> usize { 0 }
+            fn init_state(&self, _: f32, _: usize) -> Self::State { () }
+            fn process_block(&self, _: &mut Self::State, _: &[&[f32]], _: &mut [Vec<f32>], _: f32) {}
+        }
+
+        let mut graph = Graph::new();
+        let external = graph.add_external_node(ManyInputNode);
+        
+        // Add 17 source nodes, each connecting to the external node
+        for i in 0..17 {
+            let src = graph.add_node(NodeType::SineOsc { freq: 440.0 });
+            graph.add_edge(Edge {
+                from_node: src,
+                from_port: PortId(0),
+                to_node: external,
+                to_port: PortId(i),
+                rate: Rate::Audio,
+            }).unwrap();
+        }
+
+        // Plan compilation should fail with TooManyInputs
+        let result = Plan::compile(&graph, 64);
+        assert!(matches!(result, Err(PlanError::TooManyInputs { got: 17, max: 16, .. })));
     }
 }

@@ -45,7 +45,7 @@
 //! let plan = Plan::compile(&graph, 64).unwrap();
 //! let mut runtime = Runtime::new(plan, &graph, 44100.0);
 //! let mut out = vec![0.0; 64];
-//! runtime.process_block(&mut out);
+//! runtime.process_block(&mut out).unwrap();
 //! ```
 
 #![doc(
@@ -58,3 +58,4 @@ pub mod invariant_ppt;
 pub mod node;
 pub mod plan;
 pub mod rt;
+pub mod states;

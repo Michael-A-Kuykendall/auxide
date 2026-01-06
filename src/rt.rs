@@ -2,28 +2,20 @@
 
 // IMPORTANT: Do not call assert_invariant or any PPT logging in RT paths to avoid locks/allocs.
 
-// Allow unsafe code for RT safety: lifetime extension to avoid Vec allocation in process_block
-#![allow(unsafe_code)]
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 
 use crate::graph::{Graph, NodeType};
 use crate::plan::Plan;
-use std::any::Any;
+use crate::states::NodeState;
 
-/// Node states for mutable data.
-#[derive(Debug)]
-pub enum NodeState {
-    SineOsc { phase: f32 },
-    Gain,
-    Mix,
-    OutputSink,
-    Dummy,
-    External { state: Box<dyn Any + Send> },
-}
+/// Maximum number of inputs that can be handled without heap allocation in RT path.
+/// This limit is enforced at plan compile time (see plan.rs MAX_EXTERNAL_NODE_INPUTS).
+const MAX_STACK_INPUTS: usize = crate::plan::MAX_EXTERNAL_NODE_INPUTS;
 
 /// The runtime engine.
 #[derive(Debug)]
 pub struct Runtime {
+    /// The compiled execution plan.
     pub plan: Plan,
     sample_rate: f32,
     nodes: Vec<Option<NodeType>>,
@@ -31,7 +23,6 @@ pub struct Runtime {
     edge_buffers: Vec<Vec<f32>>,
     temp_inputs: Vec<usize>,
     temp_output_vecs: Vec<Vec<f32>>,
-    temp_input_slices: Vec<&'static [f32]>,
 }
 
 impl Runtime {
@@ -62,7 +53,6 @@ impl Runtime {
         let temp_output_vecs = (0..plan.max_outputs)
             .map(|_| vec![0.0; plan.block_size])
             .collect();
-        let temp_input_slices = Vec::with_capacity(plan.max_inputs);
         Self {
             plan,
             sample_rate,
@@ -71,7 +61,6 @@ impl Runtime {
             edge_buffers,
             temp_inputs,
             temp_output_vecs,
-            temp_input_slices,
         }
     }
 
@@ -153,14 +142,30 @@ impl Runtime {
                         }
                     }
                     NodeType::External { def } => {
-                        self.temp_input_slices.clear();
-                        for &idx in &self.temp_inputs {
-                            self.temp_input_slices.push(unsafe {
-                                std::mem::transmute::<&[f32], &'static [f32]>(&self.edge_buffers[idx][..])
-                            });
-                        }
-                        if let NodeState::External { state } = node_state {
-                            def.process_block(state.as_mut(), &self.temp_input_slices, outputs, self.sample_rate);
+                        // Build input slices on the stack with proper lifetimes.
+                        // The slices borrow from edge_buffers which lives for the duration
+                        // of this function, ensuring sound lifetime semantics.
+                        let num_inputs = self.temp_inputs.len();
+                        
+                        if num_inputs <= MAX_STACK_INPUTS {
+                            // Fast path: use stack array for typical cases
+                            let mut input_refs: [&[f32]; MAX_STACK_INPUTS] = [&[]; MAX_STACK_INPUTS];
+                            for (i, &idx) in self.temp_inputs.iter().enumerate() {
+                                input_refs[i] = &self.edge_buffers[idx][..];
+                            }
+                            let inputs_slice = &input_refs[..num_inputs];
+                            if let NodeState::External { state } = node_state {
+                                def.process_block(state.as_mut(), inputs_slice, outputs, self.sample_rate);
+                            }
+                        } else {
+                            // This branch should be unreachable: Plan::compile rejects external nodes
+                            // with >MAX_EXTERNAL_NODE_INPUTS inputs. If we hit this, it's a bug.
+                            debug_assert!(false, "External node has {} inputs but plan should have rejected >{}. \
+                                This indicates a bug in Plan::compile validation.", num_inputs, MAX_STACK_INPUTS);
+                            // Fail-closed: silence outputs for this node
+                            for output in outputs.iter_mut() {
+                                output.fill(0.0);
+                            }
                         }
                     }
                 }
@@ -222,27 +227,29 @@ mod tests {
     use crate::node::NodeDef;
     use crate::plan::Plan;
 
-    static PORTS_MONO_IN: &[crate::graph::Port] = &[crate::graph::Port {
-        id: PortId(0),
-        rate: Rate::Audio,
-    }];
-    static PORTS_MONO_OUT: &[crate::graph::Port] = &[crate::graph::Port {
-        id: PortId(0),
-        rate: Rate::Audio,
-    }];
-
     #[derive(Clone)]
     struct TestExternalNode;
+
+    impl TestExternalNode {
+        const PORTS_MONO_IN: &'static [crate::graph::Port] = &[crate::graph::Port {
+            id: PortId(0),
+            rate: Rate::Audio,
+        }];
+        const PORTS_MONO_OUT: &'static [crate::graph::Port] = &[crate::graph::Port {
+            id: PortId(0),
+            rate: Rate::Audio,
+        }];
+    }
 
     impl NodeDef for TestExternalNode {
         type State = f32;
 
         fn input_ports(&self) -> &'static [crate::graph::Port] {
-            PORTS_MONO_IN
+            Self::PORTS_MONO_IN
         }
 
         fn output_ports(&self) -> &'static [crate::graph::Port] {
-            PORTS_MONO_OUT
+            Self::PORTS_MONO_OUT
         }
 
         fn required_inputs(&self) -> usize {
@@ -406,5 +413,11 @@ mod tests {
             result.unwrap_err(),
             "output buffer must be exactly block_size long"
         );
+    }
+
+    #[test]
+    fn max_inputs_consistent_with_plan() {
+        // Ensure the stack fast-path limit in RT matches the compile-time plan limit.
+        assert_eq!(MAX_STACK_INPUTS, crate::plan::MAX_EXTERNAL_NODE_INPUTS);
     }
 }
