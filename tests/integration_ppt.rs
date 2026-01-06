@@ -4,10 +4,10 @@
 use auxide::graph::{Graph, NodeType, PortId, Rate};
 use auxide::plan::Plan;
 use auxide::rt::Runtime;
-use auxide_dsp::nodes::oscillators::SawOsc;
-use auxide_dsp::nodes::filters::{SvfFilter, SvfMode};
 use auxide_dsp::nodes::envelopes::AdsrEnvelope;
+use auxide_dsp::nodes::filters::{SvfFilter, SvfMode};
 use auxide_dsp::nodes::fx::Delay;
+use auxide_dsp::nodes::oscillators::SawOsc;
 use auxide_io::stream_controller::StreamController;
 use auxide_midi::VoiceAllocator;
 
@@ -26,21 +26,25 @@ fn test_auxide_dsp_integration() {
     let output = graph.add_node(NodeType::OutputSink);
 
     // Connect: Osc -> Filter -> Output
-    graph.add_edge(auxide::graph::Edge {
-        from_node: osc,
-        from_port: PortId(0),
-        to_node: filter,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: osc,
+            from_port: PortId(0),
+            to_node: filter,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
 
-    graph.add_edge(auxide::graph::Edge {
-        from_node: filter,
-        from_port: PortId(0),
-        to_node: output,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: filter,
+            from_port: PortId(0),
+            to_node: output,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
 
     // Plan and execute
     let plan = Plan::compile(&graph, 64).unwrap();
@@ -50,7 +54,10 @@ fn test_auxide_dsp_integration() {
     runtime.process_block(&mut output_buffer).unwrap();
 
     // Verify DSP processing occurred (output should be filtered)
-    assert!(!output_buffer.iter().all(|&x| x == 0.0), "DSP processing should produce non-zero output");
+    assert!(
+        !output_buffer.iter().all(|&x| x == 0.0),
+        "DSP processing should produce non-zero output"
+    );
 }
 
 #[test]
@@ -62,13 +69,15 @@ fn test_auxide_io_integration() {
     let osc = graph.add_node(NodeType::SineOsc { freq: 440.0 });
     let output = graph.add_node(NodeType::OutputSink);
 
-    graph.add_edge(auxide::graph::Edge {
-        from_node: osc,
-        from_port: PortId(0),
-        to_node: output,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: osc,
+            from_port: PortId(0),
+            to_node: output,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
 
     // Test StreamController creation (can't actually stream without device)
     let plan = Plan::compile(&graph, 64).unwrap();
@@ -107,7 +116,7 @@ fn test_full_pipeline_integration() {
 
     // Build complex DSP graph manually (EffectsChainBuilder doesn't auto-connect)
     let mut graph = Graph::new();
-    
+
     // Add nodes
     let input = graph.add_node(NodeType::Dummy);
     let osc = graph.add_external_node(SawOsc { freq: 440.0 });
@@ -129,39 +138,47 @@ fn test_full_pipeline_integration() {
         mix: 0.2,
     });
     let output = graph.add_node(NodeType::OutputSink);
-    
+
     // Connect: Input -> Osc -> Env -> Filter -> Delay -> Output
-    graph.add_edge(auxide::graph::Edge {
-        from_node: osc,
-        from_port: PortId(0),
-        to_node: env,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
-    
-    graph.add_edge(auxide::graph::Edge {
-        from_node: env,
-        from_port: PortId(0),
-        to_node: filter,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
-    
-    graph.add_edge(auxide::graph::Edge {
-        from_node: filter,
-        from_port: PortId(0),
-        to_node: delay,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
-    
-    graph.add_edge(auxide::graph::Edge {
-        from_node: delay,
-        from_port: PortId(0),
-        to_node: output,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: osc,
+            from_port: PortId(0),
+            to_node: env,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
+
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: env,
+            from_port: PortId(0),
+            to_node: filter,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
+
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: filter,
+            from_port: PortId(0),
+            to_node: delay,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
+
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: delay,
+            from_port: PortId(0),
+            to_node: output,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
 
     // Plan compilation
     let plan = Plan::compile(&graph, 64).unwrap();
@@ -200,7 +217,7 @@ fn test_rt_safety_integration() {
 
     // Create RT workload with complex DSP chain (manual connections)
     let mut graph = Graph::new();
-    
+
     let input = graph.add_node(NodeType::Dummy);
     let osc = graph.add_external_node(SawOsc { freq: 440.0 });
     let filter = graph.add_external_node(SvfFilter {
@@ -214,31 +231,37 @@ fn test_rt_safety_integration() {
         mix: 0.3,
     });
     let output = graph.add_node(NodeType::OutputSink);
-    
+
     // Connect: Osc -> Filter -> Delay -> Output
-    graph.add_edge(auxide::graph::Edge {
-        from_node: osc,
-        from_port: PortId(0),
-        to_node: filter,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
-    
-    graph.add_edge(auxide::graph::Edge {
-        from_node: filter,
-        from_port: PortId(0),
-        to_node: delay,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
-    
-    graph.add_edge(auxide::graph::Edge {
-        from_node: delay,
-        from_port: PortId(0),
-        to_node: output,
-        to_port: PortId(0),
-        rate: Rate::Audio,
-    }).unwrap();
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: osc,
+            from_port: PortId(0),
+            to_node: filter,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
+
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: filter,
+            from_port: PortId(0),
+            to_node: delay,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
+
+    graph
+        .add_edge(auxide::graph::Edge {
+            from_node: delay,
+            from_port: PortId(0),
+            to_node: output,
+            to_port: PortId(0),
+            rate: Rate::Audio,
+        })
+        .unwrap();
 
     let plan = Plan::compile(&graph, 128).unwrap();
     let mut runtime = Runtime::new(plan, &graph, 48000.0);
@@ -250,5 +273,8 @@ fn test_rt_safety_integration() {
     }
 
     // Verify sustained processing didn't break
-    assert!(!output_buffer.iter().all(|&x| x == 0.0), "RT processing should be sustained");
+    assert!(
+        !output_buffer.iter().all(|&x| x == 0.0),
+        "RT processing should be sustained"
+    );
 }

@@ -63,7 +63,12 @@ pub fn assert_invariant(_id: u32, condition: bool, message: &str, _context: Opti
 #[cfg(feature = "ppt")]
 #[allow(dead_code)]
 /// RT-safe variant: does not acquire locks or mutate global logs. Use in RT paths.
-pub(crate) fn assert_invariant_rt_safe(id: u32, condition: bool, message: &str, _context: Option<&str>) {
+pub(crate) fn assert_invariant_rt_safe(
+    id: u32,
+    condition: bool,
+    message: &str,
+    _context: Option<&str>,
+) {
     if !condition {
         let full_message = format!("Invariant {} failed (RT-safe): {}", id, message);
         eprintln!("{}", full_message);
@@ -74,11 +79,16 @@ pub(crate) fn assert_invariant_rt_safe(id: u32, condition: bool, message: &str, 
 #[cfg(not(feature = "ppt"))]
 #[allow(dead_code)]
 /// RT-safe variant: no-op for non-PPT builds (still checks condition).
-pub(crate) fn assert_invariant_rt_safe(_id: u32, condition: bool, message: &str, _context: Option<&str>) {
+pub(crate) fn assert_invariant_rt_safe(
+    _id: u32,
+    condition: bool,
+    message: &str,
+    _context: Option<&str>,
+) {
     if !condition {
         panic!("Invariant failed: {}", message);
     }
-} 
+}
 
 #[cfg(feature = "ppt")]
 /// Contract test: checks that specified invariants were asserted.

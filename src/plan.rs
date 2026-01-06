@@ -96,7 +96,9 @@ impl Plan {
                 return Err(PlanError::RequiredInputMissing { node: node_data.id });
             }
             // External nodes have a compile-time input limit for RT safety
-            if matches!(node_data.node_type, crate::graph::NodeType::External { .. }) && connected > MAX_EXTERNAL_NODE_INPUTS {
+            if matches!(node_data.node_type, crate::graph::NodeType::External { .. })
+                && connected > MAX_EXTERNAL_NODE_INPUTS
+            {
                 return Err(PlanError::TooManyInputs {
                     node: node_data.id,
                     got: connected,
@@ -114,10 +116,15 @@ impl Plan {
             max_inputs,
             max_outputs,
         };
-        
+
         // PPT Invariant: Plan compilation succeeded and is sound
-        assert_invariant(PLAN_SOUNDNESS, true, "Plan compilation completed successfully", Some("compile"));
-        
+        assert_invariant(
+            PLAN_SOUNDNESS,
+            true,
+            "Plan compilation completed successfully",
+            Some("compile"),
+        );
+
         Ok(plan)
     }
 }
@@ -252,63 +259,144 @@ mod tests {
 
     #[test]
     fn plan_rejects_external_node_with_too_many_inputs() {
-        use crate::node::NodeDef;
         use crate::graph::Port;
+        use crate::node::NodeDef;
 
         // Create a dummy external node that accepts many inputs
         struct ManyInputNode;
-        
+
         // Static port arrays for the node
         static INPUT_PORTS: [Port; 20] = [
-            Port { id: PortId(0), rate: Rate::Audio },
-            Port { id: PortId(1), rate: Rate::Audio },
-            Port { id: PortId(2), rate: Rate::Audio },
-            Port { id: PortId(3), rate: Rate::Audio },
-            Port { id: PortId(4), rate: Rate::Audio },
-            Port { id: PortId(5), rate: Rate::Audio },
-            Port { id: PortId(6), rate: Rate::Audio },
-            Port { id: PortId(7), rate: Rate::Audio },
-            Port { id: PortId(8), rate: Rate::Audio },
-            Port { id: PortId(9), rate: Rate::Audio },
-            Port { id: PortId(10), rate: Rate::Audio },
-            Port { id: PortId(11), rate: Rate::Audio },
-            Port { id: PortId(12), rate: Rate::Audio },
-            Port { id: PortId(13), rate: Rate::Audio },
-            Port { id: PortId(14), rate: Rate::Audio },
-            Port { id: PortId(15), rate: Rate::Audio },
-            Port { id: PortId(16), rate: Rate::Audio },
-            Port { id: PortId(17), rate: Rate::Audio },
-            Port { id: PortId(18), rate: Rate::Audio },
-            Port { id: PortId(19), rate: Rate::Audio },
+            Port {
+                id: PortId(0),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(1),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(2),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(3),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(4),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(5),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(6),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(7),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(8),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(9),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(10),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(11),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(12),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(13),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(14),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(15),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(16),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(17),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(18),
+                rate: Rate::Audio,
+            },
+            Port {
+                id: PortId(19),
+                rate: Rate::Audio,
+            },
         ];
-        static OUTPUT_PORTS: [Port; 1] = [Port { id: PortId(0), rate: Rate::Audio }];
-        
+        static OUTPUT_PORTS: [Port; 1] = [Port {
+            id: PortId(0),
+            rate: Rate::Audio,
+        }];
+
         impl NodeDef for ManyInputNode {
             type State = ();
-            fn input_ports(&self) -> &'static [Port] { &INPUT_PORTS }
-            fn output_ports(&self) -> &'static [Port] { &OUTPUT_PORTS }
-            fn required_inputs(&self) -> usize { 0 }
-            fn init_state(&self, _: f32, _: usize) -> Self::State { () }
-            fn process_block(&self, _: &mut Self::State, _: &[&[f32]], _: &mut [Vec<f32>], _: f32) {}
+            fn input_ports(&self) -> &'static [Port] {
+                &INPUT_PORTS
+            }
+            fn output_ports(&self) -> &'static [Port] {
+                &OUTPUT_PORTS
+            }
+            fn required_inputs(&self) -> usize {
+                0
+            }
+            fn init_state(&self, _: f32, _: usize) -> Self::State {
+                ()
+            }
+            fn process_block(&self, _: &mut Self::State, _: &[&[f32]], _: &mut [Vec<f32>], _: f32) {
+            }
         }
 
         let mut graph = Graph::new();
         let external = graph.add_external_node(ManyInputNode);
-        
+
         // Add 17 source nodes, each connecting to the external node
         for i in 0..17 {
             let src = graph.add_node(NodeType::SineOsc { freq: 440.0 });
-            graph.add_edge(Edge {
-                from_node: src,
-                from_port: PortId(0),
-                to_node: external,
-                to_port: PortId(i),
-                rate: Rate::Audio,
-            }).unwrap();
+            graph
+                .add_edge(Edge {
+                    from_node: src,
+                    from_port: PortId(0),
+                    to_node: external,
+                    to_port: PortId(i),
+                    rate: Rate::Audio,
+                })
+                .unwrap();
         }
 
         // Plan compilation should fail with TooManyInputs
         let result = Plan::compile(&graph, 64);
-        assert!(matches!(result, Err(PlanError::TooManyInputs { got: 17, max: 16, .. })));
+        assert!(matches!(
+            result,
+            Err(PlanError::TooManyInputs {
+                got: 17,
+                max: 16,
+                ..
+            })
+        ));
     }
 }

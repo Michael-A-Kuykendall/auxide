@@ -208,9 +208,7 @@ impl Graph {
 
     /// Add an external node defined via NodeDef.
     pub fn add_external_node<T: NodeDef>(&mut self, def: T) -> NodeId {
-        self.add_node(NodeType::External {
-            def: Arc::new(def),
-        })
+        self.add_node(NodeType::External { def: Arc::new(def) })
     }
 
     /// Add an edge, validating rates match and no cycles.
@@ -270,10 +268,15 @@ impl Graph {
         }
 
         self.edges.push(edge);
-        
+
         // PPT Invariant: Graph structure remains legal after adding edge
-        assert_invariant(GRAPH_LEGALITY, true, "Edge added successfully, graph remains legal", Some("add_edge"));
-        
+        assert_invariant(
+            GRAPH_LEGALITY,
+            true,
+            "Edge added successfully, graph remains legal",
+            Some("add_edge"),
+        );
+
         Ok(())
     }
 

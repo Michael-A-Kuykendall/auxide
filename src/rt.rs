@@ -97,7 +97,11 @@ impl Runtime {
                         for (i, &edge_idx) in self.temp_inputs.iter().enumerate() {
                             let input = &self.edge_buffers[edge_idx][..];
                             if let Some(output) = outputs.get_mut(i) {
-                                debug_assert_eq!(input.len(), output.len(), "Buffer lengths must match for copy_from_slice");
+                                debug_assert_eq!(
+                                    input.len(),
+                                    output.len(),
+                                    "Buffer lengths must match for copy_from_slice"
+                                );
                                 output.copy_from_slice(input);
                             }
                         }
@@ -146,22 +150,32 @@ impl Runtime {
                         // The slices borrow from edge_buffers which lives for the duration
                         // of this function, ensuring sound lifetime semantics.
                         let num_inputs = self.temp_inputs.len();
-                        
+
                         if num_inputs <= MAX_STACK_INPUTS {
                             // Fast path: use stack array for typical cases
-                            let mut input_refs: [&[f32]; MAX_STACK_INPUTS] = [&[]; MAX_STACK_INPUTS];
+                            let mut input_refs: [&[f32]; MAX_STACK_INPUTS] =
+                                [&[]; MAX_STACK_INPUTS];
                             for (i, &idx) in self.temp_inputs.iter().enumerate() {
                                 input_refs[i] = &self.edge_buffers[idx][..];
                             }
                             let inputs_slice = &input_refs[..num_inputs];
                             if let NodeState::External { state } = node_state {
-                                def.process_block(state.as_mut(), inputs_slice, outputs, self.sample_rate);
+                                def.process_block(
+                                    state.as_mut(),
+                                    inputs_slice,
+                                    outputs,
+                                    self.sample_rate,
+                                );
                             }
                         } else {
                             // This branch should be unreachable: Plan::compile rejects external nodes
                             // with >MAX_EXTERNAL_NODE_INPUTS inputs. If we hit this, it's a bug.
-                            debug_assert!(false, "External node has {} inputs but plan should have rejected >{}. \
-                                This indicates a bug in Plan::compile validation.", num_inputs, MAX_STACK_INPUTS);
+                            debug_assert!(
+                                false,
+                                "External node has {} inputs but plan should have rejected >{}. \
+                                This indicates a bug in Plan::compile validation.",
+                                num_inputs, MAX_STACK_INPUTS
+                            );
                             // Fail-closed: silence outputs for this node
                             for output in outputs.iter_mut() {
                                 output.fill(0.0);
