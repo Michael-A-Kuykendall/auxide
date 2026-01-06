@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.0] - 2026-01-05
+- **Module reorganization**: Extracted `states.rs` from `rt.rs` for better code organization
+- **Enhanced PPT API**: Added integration tests and RT no-PPT test coverage
+- **Graph invariants**: Improved testing and validation of graph constraints
+- **API improvements**: Minor enhancements to graph building and node management
+
 ## [0.2.0] - 2026-01-04
 - Added trait-based external node hook (`NodeType::External`) with object-safe `NodeDef` adapter.
 - Port metadata now uses static slices to avoid allocations in hot paths.
