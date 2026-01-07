@@ -113,8 +113,10 @@ impl Runtime {
                                 for sample in output.iter_mut() {
                                     *sample = phase.sin();
                                     *phase += step;
-                                    // Wrap phase to prevent precision loss over long sessions
-                                    *phase %= 2.0 * std::f32::consts::PI;
+                                    // Only wrap phase if it exceeds 2π to prevent precision loss
+                                    if *phase > 2.0 * std::f32::consts::PI {
+                                        *phase %= 2.0 * std::f32::consts::PI;
+                                    }
                                 }
                             }
                         }
@@ -160,26 +162,39 @@ impl Runtime {
                             }
                             let inputs_slice = &input_refs[..num_inputs];
                             if let NodeState::External { state } = node_state {
-                                def.process_block(
+                                match def.process_block(
                                     state.as_mut(),
                                     inputs_slice,
                                     outputs,
                                     self.sample_rate,
-                                );
+                                ) {
+                                    Ok(()) => {
+                                        // Successful processing
+                                    }
+                                    Err(e) => {
+                                        eprintln!("External node processing failed: {}", e);
+                                        // Fail-closed: silence outputs
+                                        for output in outputs.iter_mut() {
+                                            output.fill(0.0);
+                                        }
+                                        return Err(e);
+                                    }
+                                }
                             }
                         } else {
                             // This branch should be unreachable: Plan::compile rejects external nodes
                             // with >MAX_EXTERNAL_NODE_INPUTS inputs. If we hit this, it's a bug.
-                            debug_assert!(
-                                false,
-                                "External node has {} inputs but plan should have rejected >{}. \
+                            eprintln!(
+                                "BUG: External node has {} inputs but plan should have rejected >{}. \
                                 This indicates a bug in Plan::compile validation.",
                                 num_inputs, MAX_STACK_INPUTS
                             );
+                            debug_assert!(false, "External node input validation failed");
                             // Fail-closed: silence outputs for this node
                             for output in outputs.iter_mut() {
                                 output.fill(0.0);
                             }
+                            return Err("External node exceeds maximum input limit");
                         }
                     }
                 }
@@ -280,15 +295,16 @@ mod tests {
             inputs: &[&[f32]],
             outputs: &mut [Vec<f32>],
             _sample_rate: f32,
-        ) {
+        ) -> Result<(), &'static str> {
             // Simple passthrough with gain stored in state; state not mutated here.
             if let Some(out) = outputs.get_mut(0) {
-                if let Some(input) = inputs.get(0) {
+                if let Some(input) = inputs.first() {
                     for (o, &i) in out.iter_mut().zip(*input) {
                         *o = i + *state;
                     }
                 }
             }
+            Ok(())
         }
     }
 

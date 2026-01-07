@@ -28,7 +28,7 @@ fn main() {
     runtime.process_block(&mut out).unwrap();
 
     // Print first few samples
-    for i in 0..10 {
-        println!("Sample {}: {}", i, out[i]);
+    for (i, sample) in out.iter().take(10).enumerate() {
+        println!("Sample {}: {}", i, sample);
     }
 }

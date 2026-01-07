@@ -102,7 +102,7 @@ pub enum NodeType {
     Mix,
     /// Output sink for audio output.
     OutputSink,
-    /// Passthrough node for testing/placeholder use.
+    /// Passthrough node for multiplexing and testing.
     Dummy,
     /// External node implemented via NodeDef trait.
     External {

@@ -213,7 +213,7 @@ fn remove_node_stress_recompile() {
         .unwrap();
     // Recompile again
     plan = Plan::compile(&graph, 64).unwrap();
-    assert!(plan.edges.len() > 0);
+    assert!(!plan.edges.is_empty());
 }
 
 #[test]

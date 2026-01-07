@@ -1,6 +1,6 @@
 [package]
 name = "auxide"
-version = "0.3.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT"
 readme = "README.md"
@@ -14,12 +14,12 @@ ppt = []
 default = ["ppt"]
 
 [dependencies]
-hound = "3.5.1"
 lazy_static = "1.4"
 
 [dev-dependencies]
 criterion = "0.5"
 proptest = "1.0"
+hound = "3.5.1"
 
 [[bench]]
 name = "rt_bench"

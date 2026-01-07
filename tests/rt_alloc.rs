@@ -5,7 +5,7 @@ use std::alloc::{GlobalAlloc, Layout};
 use std::cell::RefCell;
 
 thread_local! {
-    static ALLOC_COUNT: RefCell<usize> = RefCell::new(0);
+    static ALLOC_COUNT: RefCell<usize> = const { RefCell::new(0) };
 }
 
 struct CountingAllocator;

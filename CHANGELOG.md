@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.1] - 2026-01-07
+- **Bug fixes**: Correctness improvements in phase accumulation and error handling
+- **Documentation improvements**: Enhanced module-level documentation and API clarity
+- **RT safety verification**: Confirmed zero allocations in process_block paths
+- **Dependency compatibility**: Verified compatibility with auxide-dsp 0.1.1, auxide-io 0.1.2, and auxide-midi 0.1.1
+- **Testing**: All unit and integration tests passing
+
+**See also**: [auxide-dsp 0.1.1](https://github.com/Michael-A-Kuykendall/auxide-dsp/releases/tag/v0.1.1), [auxide-io 0.1.2](https://github.com/Michael-A-Kuykendall/auxide-io/releases/tag/v0.1.2), [auxide-midi 0.1.1](https://github.com/Michael-A-Kuykendall/auxide-midi/releases/tag/v0.1.1)
+
 ## [0.3.0] - 2026-01-05
 - **Module reorganization**: Extracted `states.rs` from `rt.rs` for better code organization
 - **Enhanced PPT API**: Added integration tests and RT no-PPT test coverage
