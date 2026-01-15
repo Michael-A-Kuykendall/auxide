@@ -22,5 +22,4 @@ Yes, for the same inputs and floating-point environment.
 Minimal set: oscillators, gains, mixers, silence, output sink. Extend via the API.
 
 ## License?
-MIT.</content>
-<parameter name="filePath">c:/Users/micha/repos/auxide/docs/FAQ.md
+MIT.

@@ -1,19 +1,17 @@
 # Changelog
 
+## [0.2.2] - 2026-01-15
+- **RT control plane**: Split runtime into `RuntimeCore` (audio) and `RuntimeControl` (main) with lock-free SPSC queues for control messages.
+- **Invariant signaling**: Added RT-safe invariant queue (`invariant_rt`) plus contract tests covering buffer fill, control delivery, and mute/reset flows.
+- **Dual licensing**: Project now dual-licensed MIT OR Apache-2.0; added `LICENSE-MIT` and `LICENSE-APACHE`.
+- **Docs**: Clarified architecture split and RT invariant signaling; fixed mojibake/tool artifacts in Markdown.
+
 ## [0.2.1] - 2026-01-07
-- **Bug fixes**: Correctness improvements in phase accumulation and error handling
-- **Documentation improvements**: Enhanced module-level documentation and API clarity
-- **RT safety verification**: Confirmed zero allocations in process_block paths
-- **Dependency compatibility**: Verified compatibility with auxide-dsp 0.1.1, auxide-io 0.1.2, and auxide-midi 0.1.1
-- **Testing**: All unit and integration tests passing
-
-**See also**: [auxide-dsp 0.1.1](https://github.com/Michael-A-Kuykendall/auxide-dsp/releases/tag/v0.1.1), [auxide-io 0.1.2](https://github.com/Michael-A-Kuykendall/auxide-io/releases/tag/v0.1.2), [auxide-midi 0.1.1](https://github.com/Michael-A-Kuykendall/auxide-midi/releases/tag/v0.1.1)
-
-## [0.3.0] - 2026-01-05
-- **Module reorganization**: Extracted `states.rs` from `rt.rs` for better code organization
-- **Enhanced PPT API**: Added integration tests and RT no-PPT test coverage
-- **Graph invariants**: Improved testing and validation of graph constraints
-- **API improvements**: Minor enhancements to graph building and node management
+- **Bug fixes**: Correctness improvements in phase accumulation and error handling.
+- **Documentation**: Enhanced module-level documentation and API clarity.
+- **RT safety**: Verified zero allocations in `process_block` paths.
+- **Compatibility**: Confirmed interoperability with auxide-dsp 0.1.1, auxide-io 0.1.2, and auxide-midi 0.1.1.
+- **Testing**: All unit and integration tests passing.
 
 ## [0.2.0] - 2026-01-04
 - Added trait-based external node hook (`NodeType::External`) with object-safe `NodeDef` adapter.
@@ -37,4 +35,3 @@
 - Comprehensive tests and benchmarks.
 - PPT (Predictive Property-Based Testing) system with runtime invariant logging and contract tests.
 - **Correctness hardening**: Reject invalid block sizes, enforce edge directions, bounds checks, phase wrapping.
-<parameter name="filePath">c:/Users/micha/repos/auxide/CHANGELOG.md

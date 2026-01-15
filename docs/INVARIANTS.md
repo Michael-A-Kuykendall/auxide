@@ -18,6 +18,11 @@ Auxide enforces several invariants to ensure correctness, determinism, and RT sa
 - **No allocs/locks in RT paths**: `process_block` and related methods are RT-safe.
 - **Buffer bounds**: All buffer accesses are bounds-checked at compile time or runtime.
 
+## RT Invariant Signaling (Lock-Free)
+- **Channel-based**: RT code signals invariant IDs over a lock-free SPSC queue; main thread drains and verifies.
+- **IDs**: `INV_PARAM_UPDATE_DELIVERED`, `INV_SAMPLE_BUFFER_FILLED`, `INV_CONTROL_MSG_PROCESSED`, `INV_RT_CALLBACK_CLEAN`, plus room for future IDs.
+- **Non-blocking**: Signals are dropped if queues are full—never block the audio thread.
+- **Contracts**: Tests assert required signals via `contract_test_rt` to guarantee RT behavior without locking.
+
 ## Violations
-Violations are caught at plan compilation and result in explicit errors (e.g., `PlanError::MultipleWritersToInput`).</content>
-<parameter name="filePath">c:/Users/micha/repos/auxide/docs/INVARIANTS.md
+Violations are caught at plan compilation and result in explicit errors (e.g., `PlanError::MultipleWritersToInput`).

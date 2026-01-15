@@ -19,6 +19,7 @@ Auxide is a real-time-safe audio graph kernel designed for building deterministi
 - Executes the plan in blocks (e.g., 64-1024 samples).
 - Processes nodes in topological order, routing data via preallocated buffers.
 - RT-safe: no allocations or locks in the hot path.
+- Split design: `RuntimeCore` (audio thread) + `RuntimeControl` (main thread) communicate via lock-free SPSC queues for parameter updates and invariant signaling.
 
 ### Extension via Traits (0.2)
 - External nodes implement `NodeDef` in downstream crates.
@@ -33,5 +34,4 @@ Auxide is a real-time-safe audio graph kernel designed for building deterministi
 ## Safety Guarantees
 - No cycles (except with delays).
 - Deterministic output for given inputs.
-- Panic-free under normal operation (fuzzed).</content>
-<parameter name="filePath">c:/Users/micha/repos/auxide/docs/ARCHITECTURE.md
+- Panic-free under normal operation (fuzzed).

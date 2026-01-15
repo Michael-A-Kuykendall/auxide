@@ -1,16 +1,38 @@
 # Sponsors
 
-Thank you to our amazing sponsors who make Auxide possible! 🙏
+Thank you to all our sponsors who help make this project possible!
 
 ## Current Sponsors
 
-*None yet — be the first!*
+*No sponsors yet. Be the first to support this project!*
 
 ## Sponsorship Tiers
 
-- **$5/month**: Coffee tier ☕ - Eternal gratitude + sponsor badge
-- **$25/month**: Bug prioritizer 🐛 - Priority support + name in SPONSORS.md
-- **$100/month**: Corporate backer 🏢 - Logo placement + monthly office hours
-- **$500/month**: Infrastructure partner 🚀 - Direct support + roadmap input
+### Enterprise Partners ($500+/month)
+- Logo on README and website
+- Priority feature requests
+- Direct support channel
+- Quarterly roadmap input
 
-[Become a sponsor](https://github.com/sponsors/Michael-A-Kuykendall)
+### Corporate Backers ($100+/month)
+- Name on README
+- Priority issue triage
+- Early access to releases
+
+### Developer Supporters ($25+/month)
+- Name in SPONSORS.md
+- Discord role
+- Supporter badge
+
+### ☕ Coffee Heroes ($5+/month)
+- Our eternal gratitude
+- Name in release notes
+
+## Become a Sponsor
+
+- **GitHub Sponsors**: [github.com/sponsors/Michael-A-Kuykendall](https://github.com/sponsors/Michael-A-Kuykendall)
+- **Ko-fi**: [ko-fi.com/mikekuykendall](https://ko-fi.com/mikekuykendall)
+- **Open Collective**: [opencollective.com/auxide](https://opencollective.com/auxide)
+- **Buy Me a Coffee**: [buymeacoffee.com/michaelakuykendall](https://buymeacoffee.com/michaelakuykendall)
+
+For enterprise sponsorship inquiries, contact: michaelallenkuykendall@gmail.com
