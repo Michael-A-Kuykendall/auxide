@@ -44,7 +44,7 @@ fn dsp_osc_correctness() {
     }
     // For 440 Hz at 44100, period 100.22, in 64 samples ~0.64 periods, ~1-2 crossings
     assert!(
-        (1..=3).contains(&zero_crossings),
+        zero_crossings >= 1 && zero_crossings <= 3,
         "Zero crossings: {}",
         zero_crossings
     );
