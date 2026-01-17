@@ -254,8 +254,8 @@ Auxide is the foundation—build your tools on top.
 
 ## Roadmap
 
-- v0.2: More built-in nodes, stereo support.
-- v1.0: Stable API, performance optimizations.
+- v0.3: Stable API with simplified runtime.
+- v1.0: Performance optimizations, stereo support, more built-in nodes.
 
 ## Contributing
 
