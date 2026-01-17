@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.3.1] - 2026-01-16
+- Release v0.3.1 with updated sponsors and API simplifications.
+
 ## [0.3.0] - 2026-01-16
 - **API Simplification**: Removed external node support, control plane, and invariant signaling for a stable, minimal API.
 - **Port Refactor**: Changed NodeType ports from static slices to Vec<Port> for easier extensibility.
