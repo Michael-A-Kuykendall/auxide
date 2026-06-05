@@ -1,46 +1,38 @@
 # Sponsors
 
-Thank you to all our sponsors!
+Thank you to all our sponsors who help make this project possible!
 
 ## Current Sponsors
 
-### Enterprise Partners ($500+/month)
-*Be the first!*
-
-### Corporate Backers ($100+/month)
-
-[![ZephyrCloudIO](https://github.com/ZephyrCloudIO.png?size=80)](https://github.com/ZephyrCloudIO)
-
-**[ZephyrCloudIO](https://github.com/ZephyrCloudIO)** - Corporate Backer (joined December 25th, 2025)
-
-### Developer Supporters ($25+/month)
-- **Omar McIver**
-
-### Coffee Heroes ($5+/month)
-- alistairheath
+*No sponsors yet. Be the first to support this project!*
 
 ## Sponsorship Tiers
 
-### Coffee Heroes - $5/month
-- Eternal gratitude
-- Sponsor badge on your GitHub profile
-- Name listed in this file
+### Enterprise Partners ($500+/month)
+- Logo on README and website
+- Priority feature requests
+- Direct support channel
+- Quarterly roadmap input
 
-### Developer Supporters - $25/month
-- Everything in Coffee Heroes
-- Priority response to bug reports
-- Name + link in this file
+### Corporate Backers ($100+/month)
+- Name on README
+- Priority issue triage
+- Early access to releases
 
-### Corporate Backers - $100/month
-- Everything in Developer Supporters
-- Company logo in README
-- Company logo in this file
+### Developer Supporters ($25+/month)
+- Name in SPONSORS.md
+- Discord role
+- Supporter badge
 
-### Enterprise Partners - $500+/month
-- Everything in Corporate Backers
-- Monthly 1:1 office hours
-- Direct input on roadmap
+### ☕ Coffee Heroes ($5+/month)
+- Our eternal gratitude
+- Name in release notes
 
-## How to Sponsor
+## Become a Sponsor
 
-[Become a Sponsor on GitHub](https://github.com/sponsors/Michael-A-Kuykendall)
+- **GitHub Sponsors**: [github.com/sponsors/Michael-A-Kuykendall](https://github.com/sponsors/Michael-A-Kuykendall)
+- **Ko-fi**: [ko-fi.com/mikekuykendall](https://ko-fi.com/mikekuykendall)
+- **Open Collective**: [opencollective.com/auxide](https://opencollective.com/auxide)
+- **Buy Me a Coffee**: [buymeacoffee.com/michaelakuykendall](https://buymeacoffee.com/michaelakuykendall)
+
+For enterprise sponsorship inquiries, contact: michaelallenkuykendall@gmail.com

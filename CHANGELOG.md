@@ -6,7 +6,6 @@
 ## [0.3.0] - 2026-01-16
 - **API Simplification**: Removed external node support, control plane, and invariant signaling for a stable, minimal API.
 - **Port Refactor**: Changed NodeType ports from static slices to Vec<Port> for easier extensibility.
-- **Sponsors Update**: Added new corporate backer ZephyrCloudIO, developer supporter Omar McIver, and coffee hero alistairheath.
 - **Code Cleanup**: Removed unused code paths, simplified error handling, and updated tests.
 - **Stability**: Focused on core audio graph functionality with RT-safe execution.
 
