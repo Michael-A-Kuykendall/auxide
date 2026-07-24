@@ -20,6 +20,20 @@ use rtrb::{Consumer, Producer, RingBuffer};
 /// Should handle bursts of MIDI events (e.g., chord presses).
 pub const CONTROL_QUEUE_CAPACITY: usize = 256;
 
+/// Canonical param indices for external-node `set_param`.
+///
+/// When `RuntimeCore::apply_control_msg` routes a semantic `ControlMsg`
+/// (e.g. `SetFilterCutoff`) onto an external `NodeDef`, it calls
+/// `NodeDef::set_param` with one of these indices. Nodes that don't
+/// have a given parameter simply ignore that index. This is the contract
+/// between the kernel control plane and `auxide-dsp` nodes.
+pub const PARAM_FREQUENCY: u8 = 0;
+pub const PARAM_CUTOFF: u8 = 1;
+pub const PARAM_RESONANCE: u8 = 2;
+pub const PARAM_WAVEFORM: u8 = 3;
+pub const PARAM_DETUNE: u8 = 4;
+pub const PARAM_PAN: u8 = 5;
+
 /// Creates a new control message queue pair.
 ///
 /// Returns (producer for main thread, consumer for RT).

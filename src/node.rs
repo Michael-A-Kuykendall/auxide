@@ -18,6 +18,10 @@ pub trait NodeDefDyn: Send + Sync {
         outputs: &mut [Vec<f32>],
         sample_rate: f32,
     ) -> Result<(), &'static str>;
+    /// Live parameter setter (see `NodeDef::set_param`). Object-safe wrapper.
+    fn set_param(&self, state: &mut dyn Any, param: u8, value: f32);
+    /// Live gate trigger (see `NodeDef::gate`). Object-safe wrapper.
+    fn gate(&self, state: &mut dyn Any, on: bool);
 }
 
 /// Generic node definition; implement this for your DSP nodes.
@@ -34,6 +38,21 @@ pub trait NodeDef: Send + Sync + 'static {
         outputs: &mut [Vec<f32>],
         sample_rate: f32,
     );
+
+    /// Live parameter setter, called from the RT control channel.
+    ///
+    /// `param` is a node-specific index (see the canonical indices in
+    /// `control.rs`, e.g. `PARAM_FREQUENCY`). The default is a no-op so
+    /// nodes without live parameters compile unchanged. Implement this to make a
+    /// node controllable at runtime (the whole point of the external-node
+    /// control plane).
+    fn set_param(&self, _state: &mut Self::State, _param: u8, _value: f32) {}
+
+    /// Live gate trigger for envelope-style nodes.
+    ///
+    /// `on == true` gates note-on (attack/release), `false` gates note-off.
+    /// Default no-op; envelope nodes implement this to articulate.
+    fn gate(&self, _state: &mut Self::State, _on: bool) {}
 }
 
 impl<T: NodeDef> NodeDefDyn for T {
@@ -67,6 +86,18 @@ impl<T: NodeDef> NodeDefDyn for T {
         } else {
             // Type mismatch: this indicates a wiring bug in runtime state initialization.
             Err("State type mismatch in External node process_block - this indicates a wiring bug")
+        }
+    }
+
+    fn set_param(&self, state: &mut dyn Any, param: u8, value: f32) {
+        if let Some(typed) = state.downcast_mut::<<T as NodeDef>::State>() {
+            <T as NodeDef>::set_param(self, typed, param, value);
+        }
+    }
+
+    fn gate(&self, state: &mut dyn Any, on: bool) {
+        if let Some(typed) = state.downcast_mut::<<T as NodeDef>::State>() {
+            <T as NodeDef>::gate(self, typed, on);
         }
     }
 }
