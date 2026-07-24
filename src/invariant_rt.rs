@@ -237,8 +237,14 @@ mod tests {
 
     #[test]
     fn test_invariant_names() {
-        assert_eq!(invariant_name(INV_PARAM_UPDATE_DELIVERED), "PARAM_UPDATE_DELIVERED");
-        assert_eq!(invariant_name(INV_SAMPLE_BUFFER_FILLED), "SAMPLE_BUFFER_FILLED");
+        assert_eq!(
+            invariant_name(INV_PARAM_UPDATE_DELIVERED),
+            "PARAM_UPDATE_DELIVERED"
+        );
+        assert_eq!(
+            invariant_name(INV_SAMPLE_BUFFER_FILLED),
+            "SAMPLE_BUFFER_FILLED"
+        );
         assert_eq!(invariant_name(255), "UNKNOWN");
     }
 }

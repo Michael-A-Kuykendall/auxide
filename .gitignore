@@ -2,3 +2,9 @@
 *.tar.gz
 .docs/
 .vscode/
+.mcp/*.db
+.mcp/chroma_db/
+.mcp/chroma_index_state.json
+.mcp/brain-index/
+.mcp/sqlite3.exe
+.aider*

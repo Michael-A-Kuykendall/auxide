@@ -96,14 +96,10 @@ pub enum ControlMsg {
     },
 
     /// Immediately silence a node (emergency mute).
-    Mute {
-        node: NodeId,
-    },
+    Mute { node: NodeId },
 
     /// Remove mute from a node.
-    Unmute {
-        node: NodeId,
-    },
+    Unmute { node: NodeId },
 
     /// All notes off (for all nodes that support it).
     AllNotesOff,

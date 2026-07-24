@@ -33,7 +33,7 @@ pub trait NodeDef: Send + Sync + 'static {
         inputs: &[&[f32]],
         outputs: &mut [Vec<f32>],
         sample_rate: f32,
-    ) -> Result<(), &'static str>;
+    );
 }
 
 impl<T: NodeDef> NodeDefDyn for T {
@@ -62,7 +62,8 @@ impl<T: NodeDef> NodeDefDyn for T {
     ) -> Result<(), &'static str> {
         // Downcast to concrete state; if type mismatch, return error.
         if let Some(typed) = state.downcast_mut::<<T as NodeDef>::State>() {
-            <T as NodeDef>::process_block(self, typed, inputs, outputs, sample_rate)
+            <T as NodeDef>::process_block(self, typed, inputs, outputs, sample_rate);
+            Ok(())
         } else {
             // Type mismatch: this indicates a wiring bug in runtime state initialization.
             Err("State type mismatch in External node process_block - this indicates a wiring bug")

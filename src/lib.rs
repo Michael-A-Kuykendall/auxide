@@ -52,11 +52,11 @@
     html_logo_url = "https://raw.githubusercontent.com/Michael-A-Kuykendall/auxide/main/assets/auxide-logo.png"
 )]
 
+pub mod control;
 pub mod dsl;
 pub mod graph;
 pub mod invariant_ppt;
 pub mod invariant_rt;
-pub mod control;
 pub mod node;
 pub mod plan;
 pub mod rt;
