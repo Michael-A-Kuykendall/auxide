@@ -780,6 +780,35 @@ impl RuntimeHandle {
 // Legacy Helper Functions
 // ============================================================================
 
+/// Render offline to a buffer using the new RuntimeHandle.
+///
+/// Unlike the legacy `render_offline`, this supports control messages
+/// sent via `RuntimeControl` before/during rendering, enabling external
+/// nodes (Sampler, ADSR, etc.) to be triggered and parameterized.
+pub fn render_offline_handle(
+    handle: &mut RuntimeHandle,
+    frames: usize,
+) -> Result<Vec<f32>, &'static str> {
+    let block_size = handle.block_size();
+    if block_size == 0 {
+        return Err("Block size must be > 0");
+    }
+    let mut output = vec![0.0; frames];
+    let mut offset = 0;
+    while offset < frames {
+        let block_len = (frames - offset).min(block_size);
+        if block_len == block_size {
+            handle.process_block(&mut output[offset..offset + block_size])?;
+        } else {
+            let mut temp_block = vec![0.0; block_size];
+            handle.process_block(&mut temp_block)?;
+            output[offset..frames].copy_from_slice(&temp_block[0..block_len]);
+        }
+        offset += block_len;
+    }
+    Ok(output)
+}
+
 /// Render offline to a buffer.
 pub fn render_offline(runtime: &mut Runtime, frames: usize) -> Result<Vec<f32>, &'static str> {
     if runtime.plan.block_size == 0 {
