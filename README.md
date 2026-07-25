@@ -233,6 +233,24 @@ Quickly test ideas without RT constraints.
 ### Integration
 Pair with `cpal` for playback, `hound` for file I/O.
 
+## Integration Gate
+
+The four crates (`auxide`, `auxide-dsp`, `auxide-io`, `auxide-midi`) are
+linked by path dependencies. A single command proves the whole stack builds,
+lints (warning-clean, `-D warnings`, including tests and examples via
+`--all-targets`), and tests together:
+
+```bash
+./verify_all.sh        # CI / Linux (or git-bash / WSL on Windows)
+pwsh ./verify_all.ps1  # native Windows
+```
+
+It `cd`s into each crate and runs `cargo build && cargo test && cargo clippy
+--all-targets -- -D warnings`, exiting non-zero on the first failure. The
+cross-crate smoke test lives in `auxide-midi/tests/integration_gate.rs`
+(SynthBuilder graph → kernel render → non-zero; plus MIDI voice-pool
+allocate/release).
+
 ## Key Features
 
 - **RT-Safe**: No allocs/locks in hot paths.
