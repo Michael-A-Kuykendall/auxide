@@ -28,7 +28,10 @@
 
 #![warn(missing_docs)]
 
-use crate::control::{new_control_queue, ControlMsg, CONTROL_QUEUE_CAPACITY};
+use crate::control::{
+    new_control_queue, ControlMsg, CONTROL_QUEUE_CAPACITY, PARAM_CUTOFF, PARAM_DETUNE,
+    PARAM_FREQUENCY, PARAM_PAN, PARAM_RESONANCE, PARAM_WAVEFORM,
+};
 use crate::graph::{Graph, NodeId, NodeType};
 use crate::invariant_rt::{
     new_invariant_queue, signal_invariant, INV_CONTROL_MSG_PROCESSED, INV_PARAM_UPDATE_DELIVERED,
@@ -431,11 +434,19 @@ impl RuntimeCore {
             ControlMsg::SetFrequency { node, hz } => {
                 if let Some(Some(NodeType::SineOsc { freq })) = self.nodes.get_mut(node.0) {
                     *freq = hz;
+                } else if let Some(Some(NodeType::External { def })) = self.nodes.get_mut(node.0) {
+                    if let Some(Some(NodeState::External { state })) = self.states.get_mut(node.0) {
+                        // Route built-in frequency onto the external param convention.
+                        def.set_param(&mut **state, PARAM_FREQUENCY, hz);
+                    }
                 }
             }
-            ControlMsg::TriggerGate { node, on: _ } => {
-                // TODO: When envelope nodes are added, trigger their gate here
-                let _ = node; // Suppress unused warning for now
+            ControlMsg::TriggerGate { node, on } => {
+                if let Some(Some(NodeType::External { def })) = self.nodes.get_mut(node.0) {
+                    if let Some(Some(NodeState::External { state })) = self.states.get_mut(node.0) {
+                        def.gate(&mut **state, on);
+                    }
+                }
             }
             ControlMsg::Mute { node } => {
                 if node.0 < self.mute_flags.len() {
@@ -448,14 +459,64 @@ impl RuntimeCore {
                 }
             }
             ControlMsg::AllNotesOff => {
-                // TODO: Trigger all envelope releases
+                for i in 0..self.nodes.len() {
+                    if let Some(Some(NodeType::External { def })) = self.nodes.get_mut(i) {
+                        if let Some(Some(NodeState::External { state })) = self.states.get_mut(i) {
+                            def.gate(&mut **state, false);
+                        }
+                    }
+                }
             }
             ControlMsg::Reset => {
                 self.gain_overrides.fill(1.0);
                 self.mute_flags.fill(false);
             }
-            // Other messages handled as needed
-            _ => {}
+            ControlMsg::SetParam {
+                node,
+                param_idx,
+                value,
+            } => {
+                if let Some(Some(NodeType::External { def })) = self.nodes.get_mut(node.0) {
+                    if let Some(Some(NodeState::External { state })) = self.states.get_mut(node.0) {
+                        def.set_param(&mut **state, param_idx, value);
+                    }
+                }
+            }
+            ControlMsg::SetFilterCutoff { node, hz } => {
+                if let Some(Some(NodeType::External { def })) = self.nodes.get_mut(node.0) {
+                    if let Some(Some(NodeState::External { state })) = self.states.get_mut(node.0) {
+                        def.set_param(&mut **state, PARAM_CUTOFF, hz);
+                    }
+                }
+            }
+            ControlMsg::SetFilterResonance { node, q } => {
+                if let Some(Some(NodeType::External { def })) = self.nodes.get_mut(node.0) {
+                    if let Some(Some(NodeState::External { state })) = self.states.get_mut(node.0) {
+                        def.set_param(&mut **state, PARAM_RESONANCE, q);
+                    }
+                }
+            }
+            ControlMsg::SetWaveform { node, waveform } => {
+                if let Some(Some(NodeType::External { def })) = self.nodes.get_mut(node.0) {
+                    if let Some(Some(NodeState::External { state })) = self.states.get_mut(node.0) {
+                        def.set_param(&mut **state, PARAM_WAVEFORM, waveform as f32);
+                    }
+                }
+            }
+            ControlMsg::SetDetune { node, cents } => {
+                if let Some(Some(NodeType::External { def })) = self.nodes.get_mut(node.0) {
+                    if let Some(Some(NodeState::External { state })) = self.states.get_mut(node.0) {
+                        def.set_param(&mut **state, PARAM_DETUNE, cents);
+                    }
+                }
+            }
+            ControlMsg::SetPan { node, pan } => {
+                if let Some(Some(NodeType::External { def })) = self.nodes.get_mut(node.0) {
+                    if let Some(Some(NodeState::External { state })) = self.states.get_mut(node.0) {
+                        def.set_param(&mut **state, PARAM_PAN, pan);
+                    }
+                }
+            }
         }
     }
 
@@ -811,6 +872,12 @@ mod tests {
                 }
             }
         }
+
+        fn set_param(&self, state: &mut Self::State, _param: u8, value: f32) {
+            *state = value;
+        }
+
+        fn gate(&self, _state: &mut Self::State, _on: bool) {}
     }
 
     #[test]
@@ -894,6 +961,62 @@ mod tests {
         runtime.process_block(&mut out).unwrap();
         // External node passes through osc into sink
         assert!(out.iter().any(|&x| x != 0.0));
+    }
+
+    #[test]
+    fn rt_external_node_control() {
+        let mut graph = Graph::new();
+        let input = graph.add_node(NodeType::Dummy);
+        let ext = graph.add_external_node(TestExternalNode);
+        let sink = graph.add_node(NodeType::OutputSink);
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: input,
+                from_port: PortId(0),
+                to_node: ext,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: ext,
+                from_port: PortId(0),
+                to_node: sink,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+
+        let plan = Plan::compile(&graph, 64).unwrap();
+        let (mut handle, mut control) = RuntimeCore::new_with_channels(plan, &graph, 44100.0);
+        // No control yet: output = dummy(0) + 0 = 0
+        let mut out0 = vec![0.0; 64];
+        handle.process_block(&mut out0).unwrap();
+        assert_eq!(out0[0], 0.0, "baseline must be 0");
+        // Send a live param update: external node adds *state to its input
+        control
+            .send(ControlMsg::SetParam {
+                node: ext,
+                param_idx: 0,
+                value: 2.0,
+            })
+            .unwrap();
+        let mut out1 = vec![0.0; 64];
+        handle.process_block(&mut out1).unwrap();
+        // Output should now be 0 + 2.0 = 2.0
+        assert!(
+            (out1[0] - 2.0).abs() < 1e-3,
+            "SetParam must change external node state live"
+        );
+        // AllNotesOff must not panic / no-op for this node
+        control.send(ControlMsg::AllNotesOff).unwrap();
+        let mut out2 = vec![0.0; 64];
+        handle.process_block(&mut out2).unwrap();
+        assert!(
+            (out2[0] - 2.0).abs() < 1e-3,
+            "state persists after AllNotesOff"
+        );
     }
 
     #[test]
