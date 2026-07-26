@@ -10,3 +10,9 @@
 .aider*
 PowerShellEditorServices.json
 opencode-session-*.md
+
+# Beads: keep the JSONL export durable (recoverable via `bd` auto-import from a newer
+# JSONL); the live daemon db and socket are local state and stay ignored.
+.beads/beads.db
+.beads/bd.sock
+!.beads/issues.jsonl
