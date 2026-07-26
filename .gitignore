@@ -16,3 +16,7 @@ opencode-session-*.md
 .beads/beads.db
 .beads/bd.sock
 !.beads/issues.jsonl
+
+# Regenerable demo artifact (rebuilt by examples/rompler_demo.rs); proof.wav is
+# the committed reference, this one is not.
+/rompler_demo.wav
