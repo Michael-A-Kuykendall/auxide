@@ -17,15 +17,60 @@ This project is built by someone who cares deeply about quality. Match that stan
 
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
-## Quick Reference
+## ⚠️ BAD USAGE — NEVER DO THESE
+
+- **NEVER** read or grep `.beads/issues.jsonl` — the JSONL is a git export, not the source of truth. Use `bd show`/`bd list`/`bd graph`/`bd search` instead.
+- **NEVER** touch `.beads/beads.db` or any `.beads/*.db` file directly — the SQLite DB is `bd`'s internal store. Use `bd` CLI for all access.
+- **NEVER** use `bd ready` as work authority — it's bugged (parent-blocked heuristic hides foundation and surfaces unrelated). Use `bd graph <epic>` instead.
+- **NEVER** create a dependency cycle — verify with `bd dep cycles` after every dep change.
+- **NEVER** embed full bead docs in AGENTS.md — use `bd onboard` + `bd prime` instead.
+
+## Bead Usage — Correct Commands
+
+### Querying (read-only, always use `bd`)
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
-bd sync               # Sync with git
+bd show <id>              # View full issue details (description, acceptance, design, notes, deps)
+bd list                   # Show all open issues
+bd list --status open     # Filter by status
+bd list --type task       # Filter by type
+bd list --label "io"      # Filter by label
+bd list --priority 0      # Filter by priority (P0)
+bd graph <epic>           # CANONICAL layering — Layer 0 = start here
+bd search "text"          # Search issues by text
+bd dep list <id>          # Show dependency info
+bd dep tree <id>          # Show dependency tree
+bd dep cycles             # Check for cycles
+bd blocked                # All blocked issues
+bd count                  # Issue counts
+bd stats                  # Detailed statistics
+bd info                   # Database + daemon info
+bd lint                   # Template validation (gated AC, success criteria)
 ```
+
+### Mutating (all through `bd`, never edit files)
+
+```bash
+bd create "Title" --type task --priority 2 --parent <epic> --description "..." --acceptance "..." --design "..."
+bd q "Title"              # Quick capture, returns ID only (pipeable)
+bd update <id> --title "..." --description "..." --acceptance "..." --design "..." --notes "..."
+bd update <id> --status in_progress
+bd update <id> --status blocked
+bd update <id> --add-label "label"
+bd close <id> -r "reason"
+bd reopen <id>
+bd dep <blocker> --blocks <blocked>    # Set dep (blocker first, --blocks blocked)
+bd dep add <blocked> <blocker>         # Alternative: "a depends on b" (a is blocked, b is blocker)
+bd dep remove <blocked> <blocker>      # Remove dep
+bd sync --flush-only                   # After EVERY mutation, before EVERY commit
+```
+
+### Anti-Patterns (enforced)
+
+- `bd ready` is BUGGED — use `bd graph` for authoritative layering
+- `.beads/issues.jsonl` is a generated export — never read it directly
+- `.beads/beads.db` is `bd`'s internal SQLite store — never touch it
+- `opencode session list` is NOT a substitute for `bd` — beads hold the work plan, sessions are transcripts
 
 ## Landing the Plane (Session Completion)
 
