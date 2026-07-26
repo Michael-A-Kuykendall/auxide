@@ -1,28 +1,19 @@
 #!/usr/bin/env bash
 # Integration gate for the auxide stack.
 #
-# Runs build + test + clippy (warning-clean, including tests/examples via
-# --all-targets) across all four crates, which live as sibling directories.
-# Exits non-zero on the first crate that fails, so a single command proves
-# the whole stack builds, lints, and tests together.
+# The repo is currently a SINGLE crate (`auxide`, Cargo.toml has no [workspace]).
+# This script builds, tests, and lints that single crate (including tests and
+# examples via --all-targets) so one command proves the whole stack is clean.
 #
-# CI / Linux (or git-bash / WSL on Windows). On native Windows use
-# verify_all.ps1.
+# CI / Linux (or git-bash / WSL on Windows). On native Windows use verify_all.ps1.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-CRATES="auxide auxide-dsp auxide-io auxide-midi"
+cd "$SCRIPT_DIR"
 
-for c in $CRATES; do
-  DIR="$ROOT/$c"
-  echo "=== $c ==="
-  (
-    cd "$DIR"
-    cargo build
-    cargo test
-    cargo clippy --all-targets -- -D warnings
-  ) || exit 1
-done
+echo "=== auxide (single crate) ==="
+cargo build --all-targets
+cargo test --all-targets
+cargo clippy --all-targets -- -D warnings
 
 echo "ALL CRATES GREEN"
