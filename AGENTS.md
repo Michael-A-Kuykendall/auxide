@@ -22,6 +22,7 @@ This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get sta
 - **NEVER** read or grep `.beads/issues.jsonl` — the JSONL is a git export, not the source of truth. Use `bd show`/`bd list`/`bd graph`/`bd search` instead.
 - **NEVER** touch `.beads/beads.db` or any `.beads/*.db` file directly — the SQLite DB is `bd`'s internal store. Use `bd` CLI for all access.
 - **NEVER** use `bd ready` as work authority — it's bugged (parent-blocked heuristic hides foundation and surfaces unrelated). Use `bd graph <epic>` instead.
+- **NEVER** trust `bd list --status <open|closed|blocked>` — it returns wrong/clamped sets (e.g., `--status blocked` returns nothing though beads are blocked; `--status closed` falsely lists open beads). Verify status with `bd show <id>`; list blocked with `bd blocked`.
 - **NEVER** create a dependency cycle — verify with `bd dep cycles` after every dep change.
 - **NEVER** embed full bead docs in AGENTS.md — use `bd onboard` + `bd prime` instead.
 
@@ -65,10 +66,19 @@ bd dep remove <blocked> <blocker>      # Remove dep
 bd sync --flush-only                   # After EVERY mutation, before EVERY commit
 ```
 
+### Conventions (ID scheme)
+
+- Feature beads: `auxide-<domain>-<code>` (domain ∈ dsp | io | midi | server | proto | conductor), e.g. `auxide-io-rfi`.
+- Standalone work: `auxide-<code>` (e.g. `auxide-b7x`, `auxide-634`, `auxide-pl0`).
+- Epics: `auxide-<name>` (e.g. `auxide-hlf`, `auxide-fxw`).
+- NEVER create `aux-` prefixed duplicates of `auxide-` beads (seen: `aux-cpr`/`auxide-cpr`). Prefer the `auxide-` form.
+
 ### Anti-Patterns (enforced)
 
 - `bd ready` is BUGGED — use `bd graph` for authoritative layering
-- `.beads/issues.jsonl` is a generated export — never read it directly
+- `bd list --status X` is UNRELIABLE — use `bd show <id>` for status and `bd blocked` for the blocked list
+- `.beads/issues.jsonl` is a generated export that can be INCOMPLETE (the exporter drops some fields, e.g. `acceptance_criteria` for certain beads) — never read it as source of truth; always use `bd show`
+- Before `bd create` from a transcript/session, **search the live db by title first** (`bd search "<title>"`) — recovered beads were duplicated by trusting transcript IDs without checking for an existing same-title bead
 - `.beads/beads.db` is `bd`'s internal SQLite store — never touch it
 - `opencode session list` is NOT a substitute for `bd` — beads hold the work plan, sessions are transcripts
 
