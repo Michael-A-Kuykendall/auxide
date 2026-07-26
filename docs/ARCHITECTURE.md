@@ -5,12 +5,26 @@
 > contracts" capture was lost. Treat as the durable source of truth; update via
 > `bd`/PR, not by editing this prose in isolation.
 
+## Repository layout (verified)
+
+The system is **seven separate GitHub repositories** under
+`github.com/Michael-A-Kuykendall/`, NOT one repo. This `auxide` repo is just
+the **kernel crate** (`auxide`); `auxide-dsp` / `auxide-io` / `auxide-midi`
+are their own repos, and `auxide-server` / `auxide-proto` / `auxide-conductor`
+are to be created. Each is developed as a sibling directory and linked via Cargo
+**path dependencies** (`auxide-dsp` already does `auxide = { path = "../auxide" }`).
+There is **no `[workspace]` aggregator**; do not merge them.
+
+➡️ **Authoritative map, clone commands, and dev-layout rules:**
+[`docs/REPOSITORIES.md`](./REPOSITORIES.md). Read it before touching code.
+
 ## Current state (verified)
 
-The repository is a **single crate** `auxide` (Cargo.toml, no `[workspace]`).
-Modules today: `control`, `dsl`, `graph`, `invariant_ppt`, `invariant_rt`,
-`node`, `plan`, `rt`, `states`. The runtime renders a `Graph` compiled to a
-`Plan` via `Runtime`/`render_offline`.
+This `auxide` repo (kernel crate) is a **single crate** `auxide`
+(Cargo.toml, no `[workspace]`). Its modules today: `control`, `dsl`, `graph`,
+`invariant_ppt`, `invariant_rt`, `node`, `plan`, `rt`, `states`. The runtime
+renders a `Graph` compiled to a `Plan` via `Runtime`/`render_offline`. The
+other six crates live in their own repos (see above).
 
 ## Target: the 7-crate stack
 

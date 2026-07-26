@@ -82,6 +82,23 @@ bd sync --flush-only                   # After EVERY mutation, before EVERY comm
 - `.beads/beads.db` is `bd`'s internal SQLite store — never touch it
 - `opencode session list` is NOT a substitute for `bd` — beads hold the work plan, sessions are transcripts
 
+## 🗺️ REPOSITORY LAYOUT (read before touching code)
+
+Auxide is **seven separate GitHub repos** under `github.com/Michael-A-Kuykendall/`,
+not one crate. This `auxide` repo is ONLY the **kernel crate** (`auxide`).
+`auxide-dsp` / `auxide-io` / `auxide-midi` are their own repos;
+`auxide-server` / `auxide-proto` / `auxide-conductor` are to be created.
+They are developed as **sibling directories** and linked via Cargo **path
+dependencies** (e.g. `auxide-dsp` does `auxide = { path = "../auxide" }`).
+There is NO `[workspace]` aggregator — do NOT merge them into one crate.
+
+A prior session wrongly collapsed everything into this one repo; that was a
+mistake. Always work in the correct crate's repo.
+
+➡️ **Authoritative map, clone commands, dependency direction, and go-live
+policy:** `docs/REPOSITORIES.md` (in this repo). When a bead needs a crate
+that has no repo yet, create the `*-private` repo per that doc.
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
