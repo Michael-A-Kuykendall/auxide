@@ -187,6 +187,11 @@ pub struct Graph {
     pub nodes: Vec<Option<NodeData>>,
     /// All edges connecting nodes.
     pub edges: Vec<Edge>,
+    /// Parallel to `edges`: true if the edge is a *delayed* (feedback) edge
+    /// that breaks a cycle. Delayed edges still carry data but are ignored for
+    /// topological ordering and cycle detection (the destination reads the
+    /// *previous* block's value — a 1-block feedback delay).
+    pub edges_delayed: Vec<bool>,
 }
 
 /// Errors that can occur when building the graph.
@@ -210,6 +215,7 @@ impl Graph {
         Self {
             nodes: Vec::new(),
             edges: Vec::new(),
+            edges_delayed: Vec::new(),
         }
     }
 
@@ -293,6 +299,7 @@ impl Graph {
         }
 
         self.edges.push(edge);
+        self.edges_delayed.push(false);
 
         // PPT Invariant: Graph structure remains legal after adding edge
         assert_invariant(
@@ -312,9 +319,70 @@ impl Graph {
         }
         // Remove the node
         self.nodes[node_id.0] = None;
-        // Remove edges connected to the node
-        self.edges
-            .retain(|e| e.from_node != node_id && e.to_node != node_id);
+        // Remove edges connected to the node, keeping `edges_delayed` aligned.
+        let mut new_edges = Vec::with_capacity(self.edges.len());
+        let mut new_delayed = Vec::with_capacity(self.edges_delayed.len());
+        for (i, e) in self.edges.drain(..).enumerate() {
+            if e.from_node != node_id && e.to_node != node_id {
+                new_edges.push(e);
+                new_delayed.push(self.edges_delayed[i]);
+            }
+        }
+        self.edges = new_edges;
+        self.edges_delayed = new_delayed;
+        Ok(())
+    }
+
+    /// Add a *delayed* (feedback) edge.
+    ///
+    /// Like [`Graph::add_edge`], but the edge is excluded from cycle detection
+    /// and from topological ordering. This is how a 1-block feedback delay
+    /// closes a loop without creating an in-block dependency: the destination
+    /// reads the *previous* block's value written by the source.
+    ///
+    /// The source/destination ports and rates are still validated as usual, and
+    /// the single-writer rule still applies.
+    pub fn add_delayed_edge(&mut self, edge: Edge) -> Result<(), GraphError> {
+        let from_node_data = self
+            .nodes
+            .get(edge.from_node.0)
+            .and_then(|n| n.as_ref())
+            .ok_or(GraphError::InvalidNode)?;
+        let to_node_data = self
+            .nodes
+            .get(edge.to_node.0)
+            .and_then(|n| n.as_ref())
+            .ok_or(GraphError::InvalidNode)?;
+
+        if !from_node_data
+            .outputs
+            .iter()
+            .any(|p| p.id == edge.from_port)
+        {
+            return Err(GraphError::InvalidPort);
+        }
+        if !to_node_data.inputs.iter().any(|p| p.id == edge.to_port) {
+            return Err(GraphError::InvalidPort);
+        }
+
+        let from_rate = self.get_port_rate(edge.from_node, edge.from_port)?;
+        let to_rate = self.get_port_rate(edge.to_node, edge.to_port)?;
+        let rate_ok = (edge.rate == from_rate && edge.rate == to_rate)
+            || (edge.rate == Rate::Control && from_rate == Rate::Audio);
+        if !rate_ok {
+            return Err(GraphError::RateMismatch);
+        }
+
+        if self
+            .edges
+            .iter()
+            .any(|e| e.to_node == edge.to_node && e.to_port == edge.to_port)
+        {
+            return Err(GraphError::PortAlreadyConnected);
+        }
+
+        self.edges.push(edge);
+        self.edges_delayed.push(true);
         Ok(())
     }
 
@@ -352,7 +420,12 @@ impl Graph {
             return false;
         }
         visited[current.0] = true;
-        for edge in &self.edges {
+        for (i, edge) in self.edges.iter().enumerate() {
+            // Delayed (feedback) edges carry the previous block's value, so they
+            // never close an in-block cycle.
+            if self.edges_delayed[i] {
+                continue;
+            }
             if edge.from_node == current && self.dfs(edge.to_node, target, visited) {
                 return true;
             }
@@ -437,6 +510,44 @@ mod tests {
         let node1 = graph.add_node(NodeType::SineOsc { freq: 440.0 });
         let node2 = graph.add_node(NodeType::Gain { gain: 1.0 });
         assert!(node1 < node2); // Since NodeId is Ord
+    }
+
+    #[test]
+    fn graph_delayed_edge_allows_cycle() {
+        // A delayed (feedback) edge may close a cycle; a normal edge may not.
+        let mut graph = Graph::new();
+        let a = graph.add_node(NodeType::Dummy);
+        let b = graph.add_node(NodeType::Mix);
+        graph
+            .add_edge(Edge {
+                from_node: a,
+                from_port: PortId(0),
+                to_node: b,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+        assert_eq!(
+            graph.add_delayed_edge(Edge {
+                from_node: b,
+                from_port: PortId(0),
+                to_node: a,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            }),
+            Ok(())
+        );
+        // The non-delayed equivalent is still rejected.
+        assert_eq!(
+            graph.add_edge(Edge {
+                from_node: b,
+                from_port: PortId(0),
+                to_node: a,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            }),
+            Err(GraphError::CycleDetected)
+        );
     }
 
     proptest! {

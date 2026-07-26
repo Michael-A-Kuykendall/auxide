@@ -19,6 +19,8 @@ pub struct EdgeSpec {
     pub to_port: PortId,
     /// Signal rate for this edge.
     pub rate: Rate,
+    /// Whether this is a delayed (feedback) edge.
+    pub delayed: bool,
 }
 
 /// The compiled plan: execution order and edge specs.
@@ -63,12 +65,14 @@ impl Plan {
         let edges: Vec<EdgeSpec> = graph
             .edges
             .iter()
-            .map(|e| EdgeSpec {
+            .enumerate()
+            .map(|(i, e)| EdgeSpec {
                 from_node: e.from_node,
                 from_port: e.from_port,
                 to_node: e.to_node,
                 to_port: e.to_port,
                 rate: e.rate.clone(),
+                delayed: graph.edges_delayed[i],
             })
             .collect();
 
@@ -225,7 +229,13 @@ fn topo_sort(graph: &Graph) -> Result<Vec<NodeId>, PlanError> {
     let mut in_degree = vec![0; graph.nodes.len()];
     let mut adj: Vec<Vec<NodeId>> = vec![vec![]; graph.nodes.len()];
 
-    for edge in &graph.edges {
+    for (i, edge) in graph.edges.iter().enumerate() {
+        // Delayed (feedback) edges do not impose an in-block ordering: the
+        // destination reads the previous block's value, so they can't create a
+        // cycle for scheduling purposes.
+        if graph.edges_delayed[i] {
+            continue;
+        }
         adj[edge.from_node.0].push(edge.to_node);
         in_degree[edge.to_node.0] += 1;
     }
@@ -554,5 +564,33 @@ mod tests {
         let graph = Graph::new();
         let result = Plan::compile(&graph, 64);
         assert!(matches!(result, Err(PlanError::EmptyGraph)));
+    }
+
+    #[test]
+    fn plan_compiles_delayed_feedback_cycle() {
+        // A cycle closed by a delayed (feedback) edge compiles: topo ordering
+        // ignores the delayed edge, so the graph is acyclic for scheduling.
+        let mut graph = Graph::new();
+        let a = graph.add_node(NodeType::Dummy);
+        let b = graph.add_node(NodeType::Mix);
+        graph
+            .add_edge(Edge {
+                from_node: a,
+                from_port: PortId(0),
+                to_node: b,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+        graph
+            .add_delayed_edge(Edge {
+                from_node: b,
+                from_port: PortId(0),
+                to_node: a,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+        assert!(Plan::compile(&graph, 64).is_ok());
     }
 }
