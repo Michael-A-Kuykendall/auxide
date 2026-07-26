@@ -59,5 +59,6 @@ pub mod invariant_ppt;
 pub mod invariant_rt;
 pub mod node;
 pub mod plan;
+pub mod registry;
 pub mod rt;
 pub mod states;
