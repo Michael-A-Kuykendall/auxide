@@ -51,9 +51,10 @@ The work plan (beads `auxide-hlf.*`, `auxide-dsp-*`, `auxide-io-*`,
 - **Node contract**: `NodeDef::set_param(idx, v)` / `gate(...)` are the uniform
   control surface every node implements.
 
-## Open question (see `auxide-aud.8`)
+## Current state vs target
 
-The beads assume the multi-crate workspace above. If the intended target is
-actually a **single crate** (the current state), the `auxide-hlf.*` crate-
-creation beads must be rewritten as single-crate modules. This is unresolved and
-needs an explicit decision.
+The repository is **currently a single crate** (`auxide`, Cargo.toml with no
+`[workspace]`). The bead plan (hlf / io / dsp / midi) describes evolving it into
+the 7-crate workspace above; the `auxide-hlf.*` beads *are* that work. This is
+the plan, not an open decision — the foundation crates get built as those beads
+are worked.
