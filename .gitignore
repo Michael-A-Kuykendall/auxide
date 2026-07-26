@@ -8,3 +8,5 @@
 .mcp/brain-index/
 .mcp/sqlite3.exe
 .aider*
+PowerShellEditorServices.json
+opencode-session-*.md
