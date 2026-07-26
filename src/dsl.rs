@@ -124,7 +124,7 @@ mod tests {
         let node1 = builder.node(NodeType::Dummy);
         let node2 = builder.node(NodeType::Dummy);
         let err = builder
-            .connect(node1, PortId(0), node2, PortId(0), Rate::Control)
+            .connect(node1, PortId(0), node2, PortId(0), Rate::Event)
             .unwrap_err();
         assert_eq!(err, DslError::Graph(GraphError::RateMismatch));
     }

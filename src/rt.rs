@@ -32,7 +32,7 @@ use crate::control::{
     new_control_queue, ControlMsg, CONTROL_QUEUE_CAPACITY, PARAM_CUTOFF, PARAM_DETUNE,
     PARAM_FREQUENCY, PARAM_PAN, PARAM_RESONANCE, PARAM_WAVEFORM,
 };
-use crate::graph::{Graph, NodeId, NodeType};
+use crate::graph::{Graph, NodeId, NodeType, PortId, Rate};
 use crate::invariant_rt::{
     new_invariant_queue, signal_invariant, INV_CONTROL_MSG_PROCESSED, INV_PARAM_UPDATE_DELIVERED,
     INV_RT_CALLBACK_CLEAN, INV_SAMPLE_BUFFER_FILLED,
@@ -44,6 +44,43 @@ use rtrb::{Consumer, Producer};
 /// Maximum number of inputs that can be handled without heap allocation in RT path.
 /// This limit is enforced at plan compile time (see plan.rs MAX_EXTERNAL_NODE_INPUTS).
 const MAX_STACK_INPUTS: usize = crate::plan::MAX_EXTERNAL_NODE_INPUTS;
+
+/// Resolve the buffer a destination node reads for a given incoming edge.
+///
+/// Audio-rate edges expose the source's live output buffer directly. Control-rate
+/// edges expose a preallocated "presentation" buffer that holds the source value
+/// constant across the whole block (sampled once per block by the runtime). This
+/// keeps control-rate modulation RT-safe with zero per-block allocation.
+fn presentation_buffer<'a>(
+    plan: &'a Plan,
+    edge_buffers: &'a [Vec<f32>],
+    control_buffers: &'a [Vec<f32>],
+    edge_idx: usize,
+) -> &'a [f32] {
+    if plan.edges[edge_idx].rate == Rate::Control {
+        let slot = plan.control_edge_slots[edge_idx].unwrap();
+        control_buffers[slot].as_slice()
+    } else {
+        edge_buffers[edge_idx].as_slice()
+    }
+}
+
+/// Find the input buffer wired to a specific input `port` of `node`.
+///
+/// Returns `None` if no edge targets that port. Used by built-in nodes that
+/// interpret a specific input port as a parameter-modulation input.
+fn find_input_buffer<'a>(
+    plan: &'a Plan,
+    edge_buffers: &'a [Vec<f32>],
+    control_buffers: &'a [Vec<f32>],
+    node: NodeId,
+    port: PortId,
+) -> Option<&'a [f32]> {
+    plan.node_inputs[node.0]
+        .iter()
+        .find(|&&(_, p)| p == port)
+        .map(|&(e, _)| presentation_buffer(plan, edge_buffers, control_buffers, e))
+}
 
 // ============================================================================
 // Legacy Runtime (preserved for backward compatibility)
@@ -63,6 +100,10 @@ pub struct Runtime {
     edge_buffers: Vec<Vec<f32>>,
     temp_inputs: Vec<usize>,
     temp_output_vecs: Vec<Vec<f32>>,
+    /// Presentation buffers for control-rate edges (held constant per block).
+    /// Indexed by the slot assigned in `Plan::control_edge_slots`. Preallocated
+    /// once; refreshed in-place each block, so the RT path never allocates.
+    control_buffers: Vec<Vec<f32>>,
 }
 
 impl Runtime {
@@ -93,6 +134,14 @@ impl Runtime {
         let temp_output_vecs = (0..plan.max_outputs)
             .map(|_| vec![0.0; plan.block_size])
             .collect();
+        let num_control = plan
+            .edges
+            .iter()
+            .filter(|e| e.rate == Rate::Control)
+            .count();
+        let control_buffers = (0..num_control)
+            .map(|_| vec![0.0; plan.block_size])
+            .collect();
         Self {
             plan,
             sample_rate,
@@ -101,6 +150,7 @@ impl Runtime {
             edge_buffers,
             temp_inputs,
             temp_output_vecs,
+            control_buffers,
         }
     }
 
@@ -135,7 +185,12 @@ impl Runtime {
                 match node_type {
                     NodeType::Dummy => {
                         for (i, &edge_idx) in self.temp_inputs.iter().enumerate() {
-                            let input = &self.edge_buffers[edge_idx][..];
+                            let input = presentation_buffer(
+                                &self.plan,
+                                &self.edge_buffers,
+                                &self.control_buffers,
+                                edge_idx,
+                            );
                             if let Some(output) = outputs.get_mut(i) {
                                 debug_assert_eq!(
                                     input.len(),
@@ -148,9 +203,25 @@ impl Runtime {
                     }
                     NodeType::SineOsc { freq } => {
                         if let NodeState::SineOsc { phase } = node_state {
-                            let step = 2.0 * std::f32::consts::PI * freq / self.sample_rate;
+                            // Port 0 is the frequency-modulation input: any source
+                            // patched there (audio or control rate) is summed into
+                            // the oscillator frequency per sample. None => no mod.
+                            let mod_buf = find_input_buffer(
+                                &self.plan,
+                                &self.edge_buffers,
+                                &self.control_buffers,
+                                node_id,
+                                PortId(0),
+                            );
                             for output in outputs.iter_mut() {
-                                for sample in output.iter_mut() {
+                                for (sample, mi) in output.iter_mut().zip(
+                                    mod_buf
+                                        .iter()
+                                        .flat_map(|b| b.iter().copied())
+                                        .chain(std::iter::repeat(0.0f32)),
+                                ) {
+                                    let f = *freq + mi;
+                                    let step = 2.0 * std::f32::consts::PI * f / self.sample_rate;
                                     *sample = phase.sin();
                                     *phase += step;
                                     // Only wrap phase if it exceeds 2π to prevent precision loss
@@ -163,7 +234,12 @@ impl Runtime {
                     }
                     NodeType::Gain { gain } => {
                         for (i, &edge_idx) in self.temp_inputs.iter().enumerate() {
-                            let input = &self.edge_buffers[edge_idx][..];
+                            let input = presentation_buffer(
+                                &self.plan,
+                                &self.edge_buffers,
+                                &self.control_buffers,
+                                edge_idx,
+                            );
                             if let Some(output) = outputs.get_mut(i) {
                                 for (o, &i_val) in output.iter_mut().zip(input) {
                                     *o = i_val * gain;
@@ -174,7 +250,12 @@ impl Runtime {
                     NodeType::Mix => {
                         for output in outputs.iter_mut() {
                             for &edge_idx in &self.temp_inputs {
-                                let input = &self.edge_buffers[edge_idx][..];
+                                let input = presentation_buffer(
+                                    &self.plan,
+                                    &self.edge_buffers,
+                                    &self.control_buffers,
+                                    edge_idx,
+                                );
                                 for (o, &i_val) in output.iter_mut().zip(input) {
                                     *o += i_val;
                                 }
@@ -183,7 +264,12 @@ impl Runtime {
                     }
                     NodeType::OutputSink => {
                         if let Some(&edge_idx) = self.temp_inputs.first() {
-                            let input = &self.edge_buffers[edge_idx][..];
+                            let input = presentation_buffer(
+                                &self.plan,
+                                &self.edge_buffers,
+                                &self.control_buffers,
+                                edge_idx,
+                            );
                             out.copy_from_slice(input);
                         }
                     }
@@ -198,7 +284,12 @@ impl Runtime {
                             let mut input_refs: [&[f32]; MAX_STACK_INPUTS] =
                                 [&[]; MAX_STACK_INPUTS];
                             for (i, &idx) in self.temp_inputs.iter().enumerate() {
-                                input_refs[i] = &self.edge_buffers[idx][..];
+                                input_refs[i] = presentation_buffer(
+                                    &self.plan,
+                                    &self.edge_buffers,
+                                    &self.control_buffers,
+                                    idx,
+                                );
                             }
                             let inputs_slice = &input_refs[..num_inputs];
                             if let NodeState::External { state } = node_state {
@@ -242,6 +333,15 @@ impl Runtime {
                 for (i, &(edge_idx, _)) in self.plan.node_outputs[node_id.0].iter().enumerate() {
                     self.edge_buffers[edge_idx].copy_from_slice(&outputs[i]);
                 }
+                // Refresh control-rate edge presentation buffers: hold the source
+                // value constant for the whole block (sampled at block start).
+                // Preallocated; refreshed in place, so the RT path never allocates.
+                for &(edge_idx, _) in &self.plan.node_outputs[node_id.0] {
+                    if let Some(slot) = self.plan.control_edge_slots[edge_idx] {
+                        let v = self.edge_buffers[edge_idx][0];
+                        self.control_buffers[slot].fill(v);
+                    }
+                }
             } else {
                 // Fail-closed: silence outputs
                 for &(edge_idx, _) in &self.plan.node_outputs[node_id.0] {
@@ -278,6 +378,9 @@ pub struct RuntimeCore {
     edge_buffers: Vec<Vec<f32>>,
     temp_inputs: Vec<usize>,
     temp_output_vecs: Vec<Vec<f32>>,
+    /// Presentation buffers for control-rate edges (held constant per block).
+    /// Indexed by the slot assigned in `Plan::control_edge_slots`.
+    control_buffers: Vec<Vec<f32>>,
     /// Per-node mute state (true = muted)
     mute_flags: Vec<bool>,
     /// Per-node gain override (applied on top of node's own gain)
@@ -369,6 +472,15 @@ impl RuntimeCore {
 
         let block_size = plan.block_size;
 
+        let num_control = plan
+            .edges
+            .iter()
+            .filter(|e| e.rate == Rate::Control)
+            .count();
+        let control_buffers = (0..num_control)
+            .map(|_| vec![0.0; plan.block_size])
+            .collect();
+
         let core = RuntimeCore {
             plan,
             sample_rate,
@@ -377,6 +489,7 @@ impl RuntimeCore {
             edge_buffers,
             temp_inputs,
             temp_output_vecs,
+            control_buffers,
             mute_flags: vec![false; num_nodes],
             gain_overrides: vec![1.0; num_nodes],
         };
@@ -604,7 +717,12 @@ impl RuntimeCore {
                 match node_type {
                     NodeType::Dummy => {
                         for (i, &edge_idx) in self.temp_inputs.iter().enumerate() {
-                            let input = &self.edge_buffers[edge_idx][..];
+                            let input = presentation_buffer(
+                                &self.plan,
+                                &self.edge_buffers,
+                                &self.control_buffers,
+                                edge_idx,
+                            );
                             if let Some(output) = outputs.get_mut(i) {
                                 output.copy_from_slice(input);
                             }
@@ -612,9 +730,25 @@ impl RuntimeCore {
                     }
                     NodeType::SineOsc { freq } => {
                         if let NodeState::SineOsc { phase } = node_state {
-                            let step = 2.0 * std::f32::consts::PI * freq / self.sample_rate;
+                            // Port 0 is the frequency-modulation input: any source
+                            // patched there (audio or control rate) is summed into
+                            // the oscillator frequency per sample. None => no mod.
+                            let mod_buf = find_input_buffer(
+                                &self.plan,
+                                &self.edge_buffers,
+                                &self.control_buffers,
+                                node_id,
+                                PortId(0),
+                            );
                             for output in outputs.iter_mut() {
-                                for sample in output.iter_mut() {
+                                for (sample, mi) in output.iter_mut().zip(
+                                    mod_buf
+                                        .iter()
+                                        .flat_map(|b| b.iter().copied())
+                                        .chain(std::iter::repeat(0.0f32)),
+                                ) {
+                                    let f = *freq + mi;
+                                    let step = 2.0 * std::f32::consts::PI * f / self.sample_rate;
                                     *sample = phase.sin() * gain_override;
                                     *phase += step;
                                     if *phase > 2.0 * std::f32::consts::PI {
@@ -625,20 +759,44 @@ impl RuntimeCore {
                         }
                     }
                     NodeType::Gain { gain } => {
-                        let effective_gain = gain * gain_override;
-                        for (i, &edge_idx) in self.temp_inputs.iter().enumerate() {
-                            let input = &self.edge_buffers[edge_idx][..];
-                            if let Some(output) = outputs.get_mut(i) {
-                                for (o, &i_val) in output.iter_mut().zip(input) {
-                                    *o = i_val * effective_gain;
-                                }
+                        let base_gain = gain * gain_override;
+                        // Port 0 = audio signal, Port 1 = gain-modulation input.
+                        let signal = find_input_buffer(
+                            &self.plan,
+                            &self.edge_buffers,
+                            &self.control_buffers,
+                            node_id,
+                            PortId(0),
+                        );
+                        let gainmod = find_input_buffer(
+                            &self.plan,
+                            &self.edge_buffers,
+                            &self.control_buffers,
+                            node_id,
+                            PortId(1),
+                        );
+                        if let (Some(output), Some(input)) = (outputs.get_mut(0), signal) {
+                            for (o, (&i_val, gm)) in output.iter_mut().zip(
+                                input.iter().zip(
+                                    gainmod
+                                        .iter()
+                                        .flat_map(|b| b.iter().copied())
+                                        .chain(std::iter::repeat(0.0f32)),
+                                ),
+                            ) {
+                                *o = i_val * (base_gain + gm);
                             }
                         }
                     }
                     NodeType::Mix => {
                         for output in outputs.iter_mut() {
                             for &edge_idx in &self.temp_inputs {
-                                let input = &self.edge_buffers[edge_idx][..];
+                                let input = presentation_buffer(
+                                    &self.plan,
+                                    &self.edge_buffers,
+                                    &self.control_buffers,
+                                    edge_idx,
+                                );
                                 for (o, &i_val) in output.iter_mut().zip(input) {
                                     *o += i_val;
                                 }
@@ -653,7 +811,12 @@ impl RuntimeCore {
                     }
                     NodeType::OutputSink => {
                         if let Some(&edge_idx) = self.temp_inputs.first() {
-                            let input = &self.edge_buffers[edge_idx][..];
+                            let input = presentation_buffer(
+                                &self.plan,
+                                &self.edge_buffers,
+                                &self.control_buffers,
+                                edge_idx,
+                            );
                             out.copy_from_slice(input);
                         }
                     }
@@ -663,7 +826,12 @@ impl RuntimeCore {
                             let mut input_refs: [&[f32]; MAX_STACK_INPUTS] =
                                 [&[]; MAX_STACK_INPUTS];
                             for (i, &idx) in self.temp_inputs.iter().enumerate() {
-                                input_refs[i] = &self.edge_buffers[idx][..];
+                                input_refs[i] = presentation_buffer(
+                                    &self.plan,
+                                    &self.edge_buffers,
+                                    &self.control_buffers,
+                                    idx,
+                                );
                             }
                             let inputs_slice = &input_refs[..num_inputs];
                             if let NodeState::External { state } = node_state {
@@ -692,6 +860,15 @@ impl RuntimeCore {
                 // Store outputs in edge buffers
                 for (i, &(edge_idx, _)) in self.plan.node_outputs[node_id.0].iter().enumerate() {
                     self.edge_buffers[edge_idx].copy_from_slice(&outputs[i]);
+                }
+                // Refresh control-rate edge presentation buffers: hold the source
+                // value constant for the whole block (sampled at block start).
+                // Preallocated; refreshed in place, so the RT path never allocates.
+                for &(edge_idx, _) in &self.plan.node_outputs[node_id.0] {
+                    if let Some(slot) = self.plan.control_edge_slots[edge_idx] {
+                        let v = self.edge_buffers[edge_idx][0];
+                        self.control_buffers[slot].fill(v);
+                    }
                 }
             } else {
                 for &(edge_idx, _) in &self.plan.node_outputs[node_id.0] {
@@ -1106,5 +1283,189 @@ mod tests {
     fn max_inputs_consistent_with_plan() {
         // Ensure the stack fast-path limit in RT matches the compile-time plan limit.
         assert_eq!(MAX_STACK_INPUTS, crate::plan::MAX_EXTERNAL_NODE_INPUTS);
+    }
+
+    /// Reference pure sine (no modulation) for divergence checks.
+    fn pure_sine(freq: f32, sample_rate: f32, n: usize) -> Vec<f32> {
+        (0..n)
+            .map(|i| (2.0 * std::f32::consts::PI * freq * i as f32 / sample_rate).sin())
+            .collect()
+    }
+
+    #[test]
+    fn rt_graph_native_mod_audio() {
+        // LFO (5 Hz) -> depth Gain (50) -> carrier SineOsc (440) freq-mod -> sink.
+        // The LFO output is summed into the carrier frequency per sample, which
+        // must audibly modulate the carrier (vibrato).
+        let mut graph = Graph::new();
+        let lfo = graph.add_node(NodeType::SineOsc { freq: 5.0 });
+        let depth = graph.add_node(NodeType::Gain { gain: 50.0 });
+        let carrier = graph.add_node(NodeType::SineOsc { freq: 440.0 });
+        let sink = graph.add_node(NodeType::OutputSink);
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: lfo,
+                from_port: PortId(0),
+                to_node: depth,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: depth,
+                from_port: PortId(0),
+                to_node: carrier,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: carrier,
+                from_port: PortId(0),
+                to_node: sink,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+        let plan = Plan::compile(&graph, 256).unwrap();
+        let mut runtime = Runtime::new(plan, &graph, 44100.0);
+        let out = render_offline(&mut runtime, 44100).unwrap();
+        assert!(
+            out.iter().any(|&x| x != 0.0),
+            "modulated output must be non-silent"
+        );
+        // Compared to a plain 440 Hz sine, the modulated output diverges because
+        // the carrier frequency is being varied by the LFO.
+        let reference = pure_sine(440.0, 44100.0, out.len());
+        let max_diff = out
+            .iter()
+            .zip(&reference)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0f32, f32::max);
+        assert!(
+            max_diff > 0.5,
+            "audio-rate LFO must audibly modulate the carrier (max diff = {:.3})",
+            max_diff
+        );
+    }
+
+    #[test]
+    fn rt_graph_native_mod_control() {
+        // Same patch, but the depth -> carrier edge is control-rate: the LFO value
+        // is held constant per block yet still modulates the carrier frequency.
+        let mut graph = Graph::new();
+        let lfo = graph.add_node(NodeType::SineOsc { freq: 5.0 });
+        let depth = graph.add_node(NodeType::Gain { gain: 50.0 });
+        let carrier = graph.add_node(NodeType::SineOsc { freq: 440.0 });
+        let sink = graph.add_node(NodeType::OutputSink);
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: lfo,
+                from_port: PortId(0),
+                to_node: depth,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: depth,
+                from_port: PortId(0),
+                to_node: carrier,
+                to_port: PortId(0),
+                rate: Rate::Control,
+            })
+            .unwrap();
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: carrier,
+                from_port: PortId(0),
+                to_node: sink,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+        let plan = Plan::compile(&graph, 256).unwrap();
+        let mut runtime = Runtime::new(plan, &graph, 44100.0);
+        let out = render_offline(&mut runtime, 44100).unwrap();
+        assert!(
+            out.iter().any(|&x| x != 0.0),
+            "modulated output must be non-silent"
+        );
+        let reference = pure_sine(440.0, 44100.0, out.len());
+        let max_diff = out
+            .iter()
+            .zip(&reference)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0f32, f32::max);
+        assert!(
+            max_diff > 0.5,
+            "control-rate LFO must still modulate the carrier (max diff = {:.3})",
+            max_diff
+        );
+    }
+
+    #[test]
+    fn rt_mod_coexists_with_queue() {
+        // The control queue sets the carrier base frequency; graph-native
+        // modulation must still apply on top of it.
+        let mut graph = Graph::new();
+        let lfo = graph.add_node(NodeType::SineOsc { freq: 5.0 });
+        let depth = graph.add_node(NodeType::Gain { gain: 50.0 });
+        let carrier = graph.add_node(NodeType::SineOsc { freq: 440.0 });
+        let sink = graph.add_node(NodeType::OutputSink);
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: lfo,
+                from_port: PortId(0),
+                to_node: depth,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: depth,
+                from_port: PortId(0),
+                to_node: carrier,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+        graph
+            .add_edge(crate::graph::Edge {
+                from_node: carrier,
+                from_port: PortId(0),
+                to_node: sink,
+                to_port: PortId(0),
+                rate: Rate::Audio,
+            })
+            .unwrap();
+        let plan = Plan::compile(&graph, 256).unwrap();
+        let (mut handle, mut control) = RuntimeCore::new_with_channels(plan, &graph, 44100.0);
+        control
+            .send(ControlMsg::SetFrequency {
+                node: carrier,
+                hz: 880.0,
+            })
+            .unwrap();
+        let out = render_offline_handle(&mut handle, 44100).unwrap();
+        assert!(
+            out.iter().any(|&x| x != 0.0),
+            "modulated output must be non-silent"
+        );
+        let reference = pure_sine(880.0, 44100.0, out.len());
+        let max_diff = out
+            .iter()
+            .zip(&reference)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0f32, f32::max);
+        assert!(
+            max_diff > 0.5,
+            "graph modulation must coexist with the control queue (max diff = {:.3})",
+            max_diff
+        );
     }
 }

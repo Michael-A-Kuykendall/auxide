@@ -56,6 +56,27 @@ const PORTS_DUAL_IN_MONO_OUT: &[Port] = &[
     },
 ];
 
+/// SineOsc frequency-modulation input. An LFO (or any source) patched here is
+/// summed into the oscillator frequency per sample, enabling graph-native
+/// modulation (audio or control rate).
+const PORTS_SINE_FREQ_IN: &[Port] = &[Port {
+    id: PortId(0),
+    rate: Rate::Audio,
+}];
+
+/// Gain inputs: port 0 is the audio signal, port 1 is a gain-modulation input
+/// (summed into the gain per sample for graph-native modulation).
+const PORTS_GAIN_IN: &[Port] = &[
+    Port {
+        id: PortId(0),
+        rate: Rate::Audio,
+    },
+    Port {
+        id: PortId(1),
+        rate: Rate::Audio,
+    },
+];
+
 /// An edge connecting two ports.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Edge {
@@ -129,8 +150,8 @@ impl NodeType {
     pub fn input_ports(&self) -> &'static [Port] {
         match self {
             NodeType::Dummy => PORTS_MONO_IN,
-            NodeType::SineOsc { .. } => PORTS_NONE,
-            NodeType::Gain { .. } => PORTS_MONO_IN,
+            NodeType::SineOsc { .. } => PORTS_SINE_FREQ_IN,
+            NodeType::Gain { .. } => PORTS_GAIN_IN,
             NodeType::Mix => PORTS_DUAL_IN_MONO_OUT,
             NodeType::OutputSink => PORTS_MONO_IN,
             NodeType::External { def } => def.input_ports(),
@@ -239,11 +260,15 @@ impl Graph {
             return Err(GraphError::InvalidPort);
         }
 
-        // Check rate mismatch
-        if edge.rate != self.get_port_rate(edge.from_node, edge.from_port)? {
-            return Err(GraphError::RateMismatch);
-        }
-        if edge.rate != self.get_port_rate(edge.to_node, edge.to_port)? {
+        // Check rate compatibility.
+        // Audio edges require matching port rates. A Control-rate edge may be
+        // driven from an Audio source (the runtime samples it once per block),
+        // which is exactly how graph-native modulation at control rate works.
+        let from_rate = self.get_port_rate(edge.from_node, edge.from_port)?;
+        let to_rate = self.get_port_rate(edge.to_node, edge.to_port)?;
+        let rate_ok = (edge.rate == from_rate && edge.rate == to_rate)
+            || (edge.rate == Rate::Control && from_rate == Rate::Audio);
+        if !rate_ok {
             return Err(GraphError::RateMismatch);
         }
 
@@ -357,9 +382,26 @@ mod tests {
             from_port: PortId(0),
             to_node: node2,
             to_port: PortId(0),
-            rate: Rate::Control, // Mismatch
+            rate: Rate::Event, // Mismatch: Event edges are not routable
         };
         assert_eq!(graph.add_edge(edge), Err(GraphError::RateMismatch));
+    }
+
+    #[test]
+    fn graph_control_edge_allowed() {
+        // A Control-rate edge driven from an Audio source is valid: it is the
+        // basis for graph-native modulation at control rate.
+        let mut graph = Graph::new();
+        let lfo = graph.add_node(NodeType::SineOsc { freq: 5.0 });
+        let carrier = graph.add_node(NodeType::SineOsc { freq: 440.0 });
+        let edge = Edge {
+            from_node: lfo,
+            from_port: PortId(0),
+            to_node: carrier,
+            to_port: PortId(0),
+            rate: Rate::Control,
+        };
+        assert_eq!(graph.add_edge(edge), Ok(()));
     }
 
     #[test]
@@ -400,7 +442,7 @@ mod tests {
     proptest! {
         #[test]
         fn graph_rate_mismatch_prop(_rate1 in 0..3usize, _rate2 in 0..3usize) {
-            // Simplified: since ports are fixed to Audio for these nodes, mismatch if edge rate != Audio
+            // Event edges are not routable; Audio/Control from an Audio source is.
             let mut graph = Graph::new();
             let node1 = graph.add_node(NodeType::SineOsc { freq: 440.0 });
             let node2 = graph.add_node(NodeType::Gain { gain: 1.0 });
@@ -409,7 +451,7 @@ mod tests {
                 from_port: PortId(0),
                 to_node: node2,
                 to_port: PortId(0),
-                rate: Rate::Control, // Mismatch
+                rate: Rate::Event, // Mismatch
             };
             prop_assert_eq!(graph.add_edge(edge), Err(GraphError::RateMismatch));
         }

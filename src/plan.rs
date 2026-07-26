@@ -38,6 +38,9 @@ pub struct Plan {
     pub max_inputs: usize,
     /// Maximum output count across all nodes.
     pub max_outputs: usize,
+    /// For each edge, the slot index into the runtime's control-rate presentation
+    /// buffers, or `None` if the edge is audio-rate. Indexed by edge index.
+    pub control_edge_slots: Vec<Option<usize>>,
 }
 
 impl Plan {
@@ -99,6 +102,16 @@ impl Plan {
         let max_inputs = node_inputs.iter().map(|v| v.len()).max().unwrap_or(0);
         let max_outputs = node_outputs.iter().map(|v| v.len()).max().unwrap_or(0);
 
+        // Assign a control-rate presentation-buffer slot to each Control-rate edge.
+        let mut control_edge_slots = vec![None; edges.len()];
+        let mut next_slot = 0usize;
+        for (edge_idx, edge) in edges.iter().enumerate() {
+            if edge.rate == Rate::Control {
+                control_edge_slots[edge_idx] = Some(next_slot);
+                next_slot += 1;
+            }
+        }
+
         // Validate required inputs and external node input limits
         for node_data in graph.nodes.iter().flatten() {
             let required = node_data.node_type.required_inputs();
@@ -146,6 +159,7 @@ impl Plan {
             block_size,
             max_inputs,
             max_outputs,
+            control_edge_slots,
         };
 
         // PPT Invariant: Plan compilation succeeded and is sound
