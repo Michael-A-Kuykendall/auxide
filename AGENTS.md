@@ -82,22 +82,63 @@ bd sync --flush-only                   # After EVERY mutation, before EVERY comm
 - `.beads/beads.db` is `bd`'s internal SQLite store — never touch it
 - `opencode session list` is NOT a substitute for `bd` — beads hold the work plan, sessions are transcripts
 
-## 🗺️ REPOSITORY LAYOUT (read before touching code)
+## 🗺️ Auxide ecosystem — 7-CRATE SYSTEM (read before touching code)
 
 Auxide is **seven separate GitHub repos** under `github.com/Michael-A-Kuykendall/`,
-not one crate. This `auxide` repo is ONLY the **kernel crate** (`auxide`).
-`auxide-dsp` / `auxide-io` / `auxide-midi` are their own repos;
-`auxide-server` / `auxide-proto` / `auxide-conductor` are to be created.
-They are developed as **sibling directories** and linked via Cargo **path
-dependencies** (e.g. `auxide-dsp` does `auxide = { path = "../auxide" }`).
-There is NO `[workspace]` aggregator — do NOT merge them into one crate.
+not a single crate or workspace. Each crate is its own repo, cloned as a sibling
+directory, and linked in dev via Cargo **path dependencies**. There is NO
+`[workspace]` aggregator — do NOT merge them.
 
-A prior session wrongly collapsed everything into this one repo; that was a
-mistake. Always work in the correct crate's repo.
+**You are here: `auxide` — the kernel crate** (graph/plan/runtime + control contract).
 
-➡️ **Authoritative map, clone commands, dependency direction, and go-live
-policy:** `docs/REPOSITORIES.md` (in this repo). When a bead needs a crate
-that has no repo yet, create the `*-private` repo per that doc.
+| Crate | Role | Status |
+|-------|------|--------|
+| `auxide` | Kernel: graph/plan/runtime + control contract | active |
+| `auxide-dsp` | DSP UGens (osc/filters/FX/env/mod) | active |
+| `auxide-io` | Audio device I/O (stream, recovery, devices) | active |
+| `auxide-midi` | MIDI bridge + ROMpler/graph consumers | active |
+| `auxide-server` | Live, multi-instance, addressable node-graph server | exists (scaffolded) |
+| `auxide-proto` | Wire protocol + client (OSC + WebSocket codecs) | exists (scaffolded) |
+| `auxide-conductor` | Composition / scheduling / transport | exists (scaffolded) |
+
+### Dependency direction
+
+```
+auxide  ──▶  (kernel, depends on nothing internal)
+  ▲  ▲  ▲
+  │  │  └── auxide-midi
+  │  └───── auxide-io
+  └──────── auxide-dsp
+                │
+                ▼
+          auxide-server   (depends on auxide + dsp + io + midi)
+                │
+                ▼
+          auxide-conductor (depends on auxide-server)
+                │
+                ▼
+          auxide-proto  (codecs for server/conductor messages)
+```
+
+`auxide` is the root dependency. Everything points at it via `path = "../auxide"`.
+Nothing points "up" toward the kernel.
+
+### Local dev tree
+
+```
+repos/
+  auxide/            ← you are here (kernel)
+  auxide-dsp/
+  auxide-io/
+  auxide-midi/
+  auxide-server/
+  auxide-proto/
+  auxide-conductor/
+```
+
+➡️ **Authoritative map, clone commands, go-live policy:** `docs/REPOSITORIES.md`.
+When a bead needs a crate that has no repo yet, create the `*-private` repo per
+that doc.
 
 ## Landing the Plane (Session Completion)
 

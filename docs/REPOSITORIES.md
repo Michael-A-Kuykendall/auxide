@@ -79,9 +79,9 @@ repos/
   auxide-dsp/        (or auxide-dsp-private)
   auxide-io/
   auxide-midi/
-  auxide-server/     (to be created)
-  auxide-proto/      (to be created)
-  auxide-conductor/  (to be created)
+  auxide-server/
+  auxide-proto/
+  auxide-conductor/
 ```
 
 Crates depend on the kernel by **relative path**, not by published version,

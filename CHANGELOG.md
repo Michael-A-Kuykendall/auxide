@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.2] - 2026-07-29
+- **Ecosystem docs**: Updated AGENTS.md with full 7-crate Auxide ecosystem overview; updated REPOSITORIES.md to reflect server/proto/conductor now exist
+- **Config**: Added opencode.json with external directory permissions for sibling repos
+
 ## [0.3.1] - 2026-01-16
 - Release v0.3.1 with updated sponsors and API simplifications.
 
