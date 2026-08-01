@@ -32,12 +32,7 @@
 
 - [What Is Auxide?](#what-is-auxide)
 - [Auxide Ecosystem](#auxide-ecosystem)
-- [Quick Start](#quick-start)
-- [Architecture](#architecture)
-- [Key Features](#key-features)
-- [Non-Goals](#non-goals)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
+- [Documentation](#documentation)
 - [License](#license)
 
 ---
@@ -63,110 +58,24 @@ Audio processing as a **directed acyclic graph (DAG)**:
 
 ## Auxide Ecosystem
 
-Auxide is not one crate — it's a growing **ecosystem of 7 crates**:
+Auxide is an ecosystem of crates:
 
-| Crate | Description | Status |
-|-------|-------------|--------|
-| **[auxide](https://github.com/Michael-A-Kuykendall/auxide)** | Audio graph kernel | active |
-| **[auxide-dsp](https://github.com/Michael-A-Kuykendall/auxide-dsp)** | DSP node library | active |
-| **[auxide-io](https://github.com/Michael-A-Kuykendall/auxide-io)** | Audio I/O layer | active |
-| **[auxide-midi](https://github.com/Michael-A-Kuykendall/auxide-midi)** | MIDI integration | active |
-| **auxide-server** | Node-graph server | in development |
-| **auxide-proto** | Wire protocol | in development |
-| **auxide-conductor** | Composition/transport | in development |
+| Crate | Description | Version |
+|-------|-------------|---------|
+| **[auxide](https://github.com/Michael-A-Kuykendall/auxide)** | Real-time-safe audio graph kernel | 0.3.2 |
+| [auxide-dsp](https://github.com/Michael-A-Kuykendall/auxide-dsp) | DSP nodes library | 0.2.1 |
+| [auxide-io](https://github.com/Michael-A-Kuykendall/auxide-io) | Audio I/O layer | 0.1.3 |
+| [auxide-midi](https://github.com/Michael-A-Kuykendall/auxide-midi) | MIDI integration | 0.1.2 |
 
 ---
 
-## Quick Start
+## Documentation
 
-```bash
-cargo add auxide
-```
-
-Then create your first audio graph — see the [Quick Start Guide](docs/QUICK_START.md) for a complete walkthrough.
-
-Browse all [examples](examples/) or run one directly:
-
-```bash
-cargo run --example basic_sine
-```
-
-For advanced patterns (fan-out mixing, offline rendering, DSP integration), see [Advanced Examples](docs/ADVANCED_EXAMPLES.md).
-
----
-
-## Architecture
-
-Auxide's three-phase pipeline ensures reliability:
-
-1. **Graph Building** — Construct your DAG with nodes and edges.
-2. **Plan Compilation** — Validate invariants, optimize for execution.
-3. **Runtime Execution** — Process audio blocks deterministically.
-
-### Key Invariants
-
-- **Single-writer**: One edge per input port.
-- **No cycles**: Acyclic graphs only.
-- **Rate compatibility**: Audio/Control rates match.
-- **Determinism**: Same inputs → same outputs.
-
-For full architectural details, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
----
-
-## Key Features
-
-- **RT-Safe**: No allocs/locks in hot paths.
-- **Deterministic**: Reproducible output.
-- **Minimal**: Small API surface, easy to learn.
-- **Extensible**: Add nodes via traits.
-- **Tested**: Fuzzing, property tests, benchmarks.
-- **Performant**: Low-latency block processing.
-
-### Integration Gate
-
-The four live crates (`auxide`, `auxide-dsp`, `auxide-io`, `auxide-midi`) are linked by path dependencies. A single command proves the whole stack builds, lints, and tests:
-
-<details>
-<summary>Cross-crate verification</summary>
-
-```bash
-./verify_all.sh        # CI / Linux (or git-bash / WSL on Windows)
-pwsh ./verify_all.ps1  # native Windows
-```
-
-It `cd`s into each crate and runs `cargo build && cargo test && cargo clippy --all-targets -- -D warnings`, exiting non-zero on the first failure.
-
-The cross-crate smoke test lives in `auxide-midi/tests/integration_gate.rs` (SynthBuilder graph → kernel render → non-zero; plus MIDI voice-pool allocate/release).
-</details>
-
----
-
-## Non-Goals
-
-- GUI or DAW features.
-- Plugin formats (VST, etc.).
-- Live coding environments.
-- Multichannel beyond mono.
-- OS audio backends.
-
-Auxide is the foundation — build your tools on top.
-
----
-
-## Roadmap
-
-- **v0.3**: Stable API with simplified runtime. ✅
-- **v1.0**: Performance optimizations, stereo support, more built-in nodes.
-- **v1.x+**: Server, protocol, conductor crates.
-
-See the full [Roadmap](ROADMAP.md) for version history and future plans.
-
----
-
-## Contributing
-
-Auxide is open source but not open contribution. See [CONTRIBUTING.md](CONTRIBUTING.md) for the collaboration policy.
+- **[Quick Start](docs/QUICK_START.md)** — build your first audio graph.
+- **[Advanced Examples](docs/ADVANCED_EXAMPLES.md)** — fan-out mixing, offline rendering, DSP integration.
+- **[Architecture](docs/ARCHITECTURE.md)** — graph building, plan compilation, runtime execution, key invariants.
+- **[Roadmap](ROADMAP.md)** — version history and future plans.
+- **[Contributing](CONTRIBUTING.md)** — collaboration policy.
 
 ---
 
