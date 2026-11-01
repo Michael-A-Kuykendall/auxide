@@ -10,21 +10,23 @@
   [![CI](https://github.com/Michael-A-Kuykendall/auxide/workflows/CI/badge.svg)](https://github.com/Michael-A-Kuykendall/auxide/actions)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-  [![💝 Sponsor this project](https://img.shields.io/badge/💝_Sponsor_this_project-ea4aaa?style=for-the-badge&logo=github&logoColor=white)](https://github.com/sponsors/Michael-A-Kuykendall)
+  [![Sponsor this project](https://img.shields.io/badge/%E2%9D%A4%EF%B8%8F-Sponsor-ea4aaa?logo=github)](https://github.com/sponsors/Michael-A-Kuykendall)
 </div>
 
 **Auxide will be free forever.** No asterisks. No "free for now." No pivot to paid.
 
-### 💝 Support Auxide's Growth
+### Support
 
-🚀 **If Auxide helps you build amazing audio tools, consider [sponsoring](https://github.com/sponsors/Michael-A-Kuykendall) — 100% of support goes to keeping it free forever.**
+This project is independently maintained and free forever. Sponsorship helps fund ongoing development, certification, compatibility work, and releases.
 
-- **$5/month**: Coffee tier ☕ — Eternal gratitude + sponsor badge
-- **$25/month**: Bug prioritizer 🐛 — Priority support + name in [SPONSORS.md](SPONSORS.md)
-- **$100/month**: Corporate backer 🏢 — Logo placement + monthly office hours
-- **$500/month**: Infrastructure partner 🚀 — Direct support + roadmap input
+[Sponsor on GitHub](https://github.com/sponsors/Michael-A-Kuykendall) · [Buy Me a Coffee](https://www.buymeacoffee.com/michaelakuykendall)
 
-[**🎯 Become a Sponsor**](https://github.com/sponsors/Michael-A-Kuykendall) | See our amazing [sponsors](SPONSORS.md) 🙏
+Any amount is appreciated. Suggested tiers:
+
+- **$5/month** — Thanks
+- **$15/month** — Supporter
+- **$50/month** — Backer
+- **Custom** — [Email for invoicing](mailto:michaelallenkuykendall@gmail.com)
 
 ---
 
@@ -92,4 +94,3 @@ If you or someone you love needs support:
 - [The Trevor Project](https://www.thetrevorproject.org/) — 24/7 for LGBTQ+ young people. Call 1-866-488-7386 or text START to 678-678
 - [Trans Lifeline](https://translifeline.org/) — peer support run by and for trans people. US: 877-565-8860
 - [988 Suicide & Crisis Lifeline](https://988lifeline.org/) — call or text 988
-
